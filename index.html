@@ -431,7 +431,7 @@ semoule;couscous|360,12,1,0.2,73,1,3,0|0|P
 boulgour|350,11,1.5,0.3,70,1,8,0|0|P
 quinoa|370,14,6,0.7,58,2,7,0|0|P
 polenta|360,8,1.5,0.3,77,1,4,0|0|P
-flocons d avoine;avoine|370,13,7,1.3,59,1,10,0|0|P
+flocons d avoine;avoine;farine d avoine|370,13,7,1.3,59,1,10,0|0|P
 lentilles|115,9,0.5,0.1,16,0.6,5,0|0|P
 pois chiches|140,8,2.6,0.3,18,1,6,0.3|0|P
 haricots rouges|120,8,0.5,0.1,17,0.5,6,0|0|P
@@ -548,11 +548,13 @@ poivre|250,10,3,1,40,1,26,0|0|A
 function trouverAliment(nom) {
   const n = cleAliment(nom);
   if (!n) return null;
-  let exact = null, partiel = null, longueur = 0;
+  let exact = null, partiel = null, longueur = 0, place = 1e9;
   for (const a of TABLE) {
     for (const s of a.syn) {
       if (n === s) { exact = a; break; }
-      if ((n.includes(s) || s.includes(n)) && s.length > longueur && s.length > 2) { partiel = a; longueur = s.length; }
+      if (s.length <= 2 || !(n.includes(s) || s.includes(n))) continue;
+      const ou = n.indexOf(s) < 0 ? 0 : n.indexOf(s);
+      if (ou < place || (ou === place && s.length > longueur)) { partiel = a; longueur = s.length; place = ou; }
     }
     if (exact) break;
   }
@@ -563,8 +565,8 @@ function trouverAliment(nom) {
 const UNITES = [
   [/^(kg|kilos?|kilogrammes?)$/, 1000], [/^(g|gr|grammes?)$/, 1], [/^mg$/, 0.001],
   [/^(l|litres?)$/, 1000], [/^(dl)$/, 100], [/^(cl)$/, 10], [/^(ml|millilitres?)$/, 1],
-  [/^(c\.?\s*a\.?\s*s\.?|cas|cs|cuilleres? a soupe|cuillere a soupe|cuilleree a soupe|tbsp)$/, 15],
-  [/^(c\.?\s*a\.?\s*c\.?|cac|cc|cuilleres? a cafe|cuillere a cafe|cuillere a the|tsp)$/, 5],
+  [/^(c\.?\s*a\.?\s*s\.?|cas|cs|c\.?\s*a\.?\s*soupe|cuilleres? a soupe|cuilleree a soupe|tbsp)$/, 15],
+  [/^(c\.?\s*a\.?\s*c\.?|cac|cc|c\.?\s*a\.?\s*cafe|c\.?\s*a\.?\s*the|cuilleres? a cafe|cuilleree a cafe|tsp)$/, 5],
   [/^(pincees?)$/, 1], [/^(gousses?)$/, 5], [/^(verres?)$/, 200], [/^(tasses?|cup|cups)$/, 240],
   [/^(bols?)$/, 300], [/^(bottes?)$/, 80], [/^(branches?|brins?)$/, 8], [/^(feuilles?)$/, 3],
   [/^(filets?|traits?)$/, 5], [/^(noix)$/, 15], [/^(sachets?)$/, 10], [/^(boites?|conserves?)$/, 400],
@@ -574,9 +576,9 @@ const UNITES = [
 const MOT_NOMBRE = { un: 1, une: 1, deux: 2, trois: 3, quatre: 4, cinq: 5, six: 6, sept: 7, huit: 8, neuf: 9, dix: 10, douze: 12, demi: .5, demie: .5, quelques: 3 };
 
 function litQuantite(txt) {
-  let t = txt.replace(/^[\s\-–—•·*▪◾✔✅🔸🔹▫️◽➡️👉🥄🥣🧂🍳🧈🥚🧄🧅🍅🥕🧀🍋🌿🥩🍗🐟🍚🍝🥔🍫🍯➖]+/gu, '').trim();
+  let t = txt.replace(/^[\s.‧·•\-–—*▪◾✔✅🔸🔹▫️◽➡️👉🥄🥣🧂🍳🧈🥚🧄🧅🍅🥕🧀🍋🌿🥩🍗🐟🍚🍝🥔🍫🍯➖]+/gu, '').trim();
   t = t.replace(/½/g, '0.5').replace(/¼/g, '0.25').replace(/¾/g, '0.75').replace(/⅓/g, '0.33').replace(/⅔/g, '0.66');
-  const m = t.match(/^((?:\d+\s*[\/]\s*\d+)|(?:\d+(?:[.,]\d+)?))\s*(?:a|-|à)?\s*(?:\d+(?:[.,]\d+)?)?\s*(.*)$/i);
+  const m = t.match(/^((?:\d+\s*[\/]\s*\d+)|(?:\d+(?:[.,]\d+)?))\s*(?:a|à|-|ou|et)?\s*(?:\d+(?:[.,]\d+)?)?\s*(.*)$/i);
   let qte = null, reste = t;
   if (m) {
     if (m[1].includes('/')) { const p = m[1].split('/'); qte = Number(p[0]) / Number(p[1]); }
@@ -655,7 +657,7 @@ const PROTEINES = [
   ['Poulet', /poulet|dinde|volaille/], ['Bœuf', /boeuf|steak|bavette|bourguignon|viande hachee/],
   ['Porc', /porc|lardon|jambon|bacon|chorizo|saucisse|filet mignon/], ['Agneau', /agneau|mouton/],
   ['Poisson', /saumon|cabillaud|thon|colin|poisson|truite|merlu|sardine/],
-  ['Fruits de mer', /crevette|gambas|moule|calamar|fruits de mer|st jacques|saint jacques/],
+  ['Fruits de mer', /crevettes?|gambas|\bmoules\b|calamars?|fruits de mer|saint[- ]jacques/],
   ['Œuf', /oeuf|œuf/], ['Tofu', /tofu|tempeh|seitan/]
 ];
 const ANIMAL = /lait|beurre|creme|fromage|yaourt|oeuf|œuf|miel|parmesan|mozzarella|feta|chevre|ricotta|mascarpone/;
@@ -694,6 +696,8 @@ const BRUIT = [
   /^\d{1,2}\s+(janv|f[ée]vr|mars|avril|mai|juin|juil|ao[ûu]t|sept|oct|nov|d[ée]c)\w*\.?(\s+\d{4})?$/i,
   /^il y a .{1,24}$/i,
   /^\d+\s*(j|h|min|sem|semaines?|jours?|heures?|mois|ans?)$/i,
+  /^(et\s+)?abonn(e|ez)[- ]?(toi|vous)/i,
+  /^(suis[- ]moi|lien en bio|recette compl[èe]te|enregistre cette recette)/i,
   /^https?:\/\/\S+$/i,
   /^www\.\S+$/i,
   /^[^\p{L}]*$/u
@@ -724,11 +728,49 @@ function corrigerOCR(t) {
     .replace(/\bc\s*!\s*/g, 'cl ');
 }
 
+/* Une ligne faite surtout de chiffres et de sigles vient de l'interface,
+   pas de la recette : « 1691 38 10 283 », « LIT C91691 Q38 @ 10 V7 283 ». */
+function bruitStatistique(l) {
+  const jetons = l.split(/\s+/).filter(Boolean);
+  if (jetons.length < 3) return false;
+  const faibles = jetons.filter(t => /\d/.test(t) || t.replace(/[^\p{L}]/gu, '').length <= 2).length;
+  return faibles / jetons.length >= 0.65;
+}
+
+/* Sur une capture, une phrase trop longue est coupée en fin d'écran :
+   la suite commence par une minuscule, on la recolle. */
+function recoller(lignes) {
+  const out = [];
+  for (const brute of lignes) {
+    const l = brute.trim();
+    if (!l) { out.push(''); continue; }
+    const prec = out.length ? out[out.length - 1] : '';
+    const marqueur = /^(voir )?(moins|plus|more|less)$/i.test(l) || /^il y a /i.test(l);
+    const suite = !marqueur && /^[a-zà-ÿ)]/.test(l);
+    const inacheve = prec && prec.length >= 32 && !/[.!?:;]$/.test(prec) && !/#[\p{L}\d_]+\s*$/u.test(prec);
+    if (suite && inacheve && prec.length + l.length < 400) out[out.length - 1] = prec + ' ' + l;
+    else out.push(l);
+  }
+  return out;
+}
+
+/* « moins », « il y a 1 jour » : la légende s'arrête là. */
+function couperApresFin(lignes) {
+  for (let i = 3; i < lignes.length; i++) {
+    const t = lignes[i].trim();
+    if (/^(voir )?(moins|plus|more|less)$/i.test(t)) return lignes.slice(0, i);
+    if (/^il y a .{1,24}$/i.test(t)) return lignes.slice(0, i);
+  }
+  return lignes;
+}
+
 function nettoyerLignes(lignes) {
   return lignes.filter(l => {
     const t = l.trim();
     if (!t) return false;
-    return !BRUIT.some(re => re.test(t));
+    if (BRUIT.some(re => re.test(t))) return false;
+    if (ressembleIngredient(t)) return true;
+    return !bruitStatistique(t);
   });
 }
 
@@ -743,12 +785,20 @@ function couperApresHashtags(lignes) {
 
 /* « man_diet.coach LA pépite en déficit calorique » : pseudo puis titre. */
 function separerPseudo(ligne) {
-  const m = ligne.match(/^([a-z0-9](?:[a-z0-9._]{2,28}))\s+(\p{L}.{4,})$/u);
+  const m = ligne.match(/^([a-z0-9](?:[a-z0-9._]{2,28}))\s+[^\p{L}\d]{0,4}\s*(\p{L}.{4,})$/u);
   if (!m) return null;
   const pseudo = m[1];
   if (!/[._]/.test(pseudo) && !/^[a-z0-9]+$/.test(pseudo)) return null;
   if (trouverAliment(pseudo)) return null;
   return { auteur: '@' + pseudo, titre: m[2].trim() };
+}
+
+function typeLigne(l) {
+  if (/^\d{1,2}\s*[-–—.)]\s*\p{L}/u.test(l)) return 'etape';
+  if (/^[.\-–—•·*▪◾]\s*\p{L}/u.test(l) && l.length < 110) return 'ingredient';
+  if (ressembleIngredient(l)) return 'ingredient';
+  if (l.length > 28 && VERBES.test(l)) return 'etape';
+  return '?';
 }
 
 function ressembleIngredient(l) {
@@ -761,7 +811,7 @@ function ressembleIngredient(l) {
   return false;
 }
 
-const RE_INGR = /^\s*[^a-z0-9]{0,4}\s*(ingr[ée]dients?|il (te|vous) faut|il faut|ingredients|liste de courses|pour la (p[âa]te|garniture|sauce|cr[èe]me|marinade)|garniture|marinade|sauce)\s*(\([^)]*\))?\s*[:：]?\s*$/i;
+const RE_INGR = /^\s*[^a-z0-9]{0,4}\s*(pour\s+\d+\s*(?:personnes?|pers|parts?|portions?)|ingr[ée]dients?|il (te|vous) faut|il faut|ingredients|liste de courses|pour la (p[âa]te|garniture|sauce|cr[èe]me|marinade)|garniture|marinade|sauce)\s*(\([^)]*\))?\s*[:：]?\s*$/i;
 const RE_ETAPE = /^\s*[^a-z0-9]{0,4}\s*(pr[ée]paration|[ée]tapes?|recette|instructions?|method|steps|r[ée]alisation|comment faire|on y va)\s*[:：]?\s*$/i;
 const RE_QTE = /^\s*[^a-zA-Z]{0,4}\s*((\d+[.,]?\d*)|½|¼|¾|⅓|⅔|un |une |deux |trois |quatre |cinq |six |quelques )/;
 const VERBES = /^(mélange|melange|ajoute|verse|fais|faites|mettre|mets|met|cuire|cuis|préchauffe|prechauffe|incorpore|réserve|reserve|découpe|decoupe|coupe|émince|emince|épluche|epluche|battre|bats|fouette|laisse|enfourne|dispose|assaisonne|sale|poivre|arrose|nappe|démoule|demoule|servir|sers|saupoudre|pétris|petris|étale|etale|badigeonne|remue|porte|plonge|égoutte|egoutte|filtre|dans un|dans une|dans le|dans la|pendant|au four|à la poêle|a la poele|commence|termine|enfin|ensuite|puis)/i;
@@ -771,7 +821,7 @@ function parseLegende(texte, source) {
   const brutes = texte.replace(/\r/g, '').split('\n')
     .map(l => retirerEnteteInterface(l.trim()));
   const hashtags = (texte.match(/#[\p{L}\d_]+/gu) || []).slice(0, 8);
-  const lignes = couperApresHashtags(nettoyerLignes(brutes));
+  const lignes = couperApresFin(couperApresHashtags(nettoyerLignes(recoller(brutes))));
   const utiles = [];
   for (let l of lignes) {
     l = l.replace(/#[\p{L}\d_]+/gu, '').replace(/https?:\/\/\S+/g, '').trim();
@@ -791,15 +841,22 @@ function parseLegende(texte, source) {
   if (iIngr >= 0) {
     entete = utiles.slice(0, iIngr);
     const fin = iEtape > iIngr ? iEtape : utiles.length;
-    blocIngr = utiles.slice(iIngr + 1, fin).filter(l => !RE_INGR.test(l));
-    if (iEtape > iIngr) blocEtapes = utiles.slice(iEtape + 1);
+    const corps = utiles.slice(iIngr + 1, fin).filter(l => !RE_INGR.test(l));
+    if (iEtape > iIngr) { blocIngr = corps; blocEtapes = utiles.slice(iEtape + 1); }
+    else {
+      const k = corps.findIndex(l => typeLigne(l) === 'etape');
+      if (k >= 0) { blocIngr = corps.slice(0, k); blocEtapes = corps.slice(k); }
+      else blocIngr = corps;
+    }
   } else {
-    utiles.forEach((l, i) => {
-      if (!/^\s*\d+\s*[.)]\s/.test(l) && ressembleIngredient(l)) blocIngr.push(l);
-      else if (l.length > 28 && VERBES.test(l)) blocEtapes.push(l);
-      else if (blocIngr.length === 0 && blocEtapes.length === 0) entete.push(l);
-      else if (blocEtapes.length) blocEtapes.push(l);
-    });
+    let vuEtape = false;
+    for (const l of utiles) {
+      const t = typeLigne(l);
+      if (t === 'etape') { vuEtape = true; blocEtapes.push(l); }
+      else if (t === 'ingredient') blocIngr.push(l);
+      else if (!vuEtape && blocIngr.length === 0) entete.push(l);
+      else if (vuEtape && l.length > 20) blocEtapes.push(l);
+    }
   }
 
   const bonTitre = l => {
@@ -828,8 +885,8 @@ function parseLegende(texte, source) {
     return { qte, unite, nom: (nom || l).replace(/\s+/g, ' ').trim(), brut: l, aliment: a ? a.cle : null };
   }).filter(i => i.nom.length > 1);
 
-  r.etapes = blocEtapes.map(l => l.replace(/^\s*(\d+[.)°]|[-–—•·*▪✅👉➡️])\s*/u, '').trim())
-    .filter(l => l.length > 3)
+  r.etapes = blocEtapes.map(l => l.replace(/^\s*(\d{1,2}\s*[-–—.)°]|[-–—•·*▪✅👉➡️])\s*/u, '').trim())
+    .filter(l => l.length > 12 || VERBES.test(l))
     .map(texteEtape => {
       const m = texteEtape.match(/(\d+)\s*(?:à|-)?\s*(\d+)?\s*(min|mn|minutes?|h|heures?|secondes?|sec)\b/i);
       let minuteur = 0;
