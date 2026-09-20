@@ -803,15 +803,84 @@ function typeLigne(l) {
   return '?';
 }
 
-/* Un titre s'arrête au premier émoji suivi d'une phrase, sinon au mot
-   qui dépasse soixante-dix caractères. */
-function couperTitre(l) {
-  let t = String(l || '').replace(/^[^\p{L}\d]+/u, '');
-  const m = t.match(/^(.{12,80}?)\s*\p{Extended_Pictographic}[\uFE0F\u200d]*\s+(?=\p{L})/u);
-  if (m) t = m[1];
+/* Noms de plats : ils signalent un vrai titre de recette. */
+const PLATS = /\b(brownies?|cookies?|g[âa]teaux?|cakes?|muffins?|tartes?|crumble|clafoutis|flan|mousse|tiramisu|cheesecake|pancakes?|cr[êe]pes?|gaufres?|porridge|granola|smoothie|bowls?|salades?|soupes?|velout[ée]|gratins?|lasagnes?|pizzas?|quiches?|burgers?|wraps?|sandwichs?|croque|omelettes?|curry|chili|risotto|p[âa]tes|riz|poulet|b[œoe]uf|porc|saumon|cabillaud|crevettes?|tofu|dahl|houmous|falafels?|nuggets?|frites|pur[ée]e|galettes?|boulettes?|one[- ]pot|energy balls?|barres?|pains?|brioche|cr[èe]me|glace|sorbet|panna cotta|fondants?|moelleux|tiramis[uù]|banana bread|overnight oats?|chaussons?|beignets?|samoussas?|nems?|tacos?|kebab|blanquette|bourguignon|tajine|couscous|paella|ratatouille|paupiettes?|paninis?|toasts?|bruschettas?|verrines?|cakes? sal[ée]s?)\b/i;
+
+/* Formules d'accroche, d'appel à l'abonnement, de fin de légende. */
+const PROMO = /\b(abonn(e|ez|é)|lien en bio|enregistre (cette|la) recette|garde (cette|la) recette|partage (à|a|avec|cette)|commente[rz]? |tague |double tap|like si|suis[- ]moi|recette compl[èe]te|swipe|clique)/i;
+
+/* Le titre s'arrête au premier séparateur éditorial rencontré. */
+function decouperEntete(l) {
+  let t = String(l || '').replace(/^[^\p{L}\d]+/u, '').trim();
+  t = t.replace(/^(nouvelle\s+)?(recette|recipe|la recette)\s*[:：\-–—]\s*/i, '');
+  const entier = t;
+  const coupes = [];
+  const ajoute = (i) => { if (i >= 8) coupes.push(i); };
+  let m = t.match(/\s[—–|•·]\s|\s:\s|\s\/\s/);
+  if (m) ajoute(m.index);
+  m = t.match(/\s*\p{Extended_Pictographic}[\uFE0F\u200d]*\s+(?=\p{L})/u);
+  if (m) ajoute(m.index);
+  m = t.match(/[.!?…]\s/);
+  if (m) ajoute(m.index + 1);
+  let i = t.search(/\bpour\s+\d+\s*(personne|pers|part|portion)/i);
+  ajoute(i);
+  i = t.search(/\s\(/);
+  if (i >= 20) ajoute(i);
+  const coupure = coupes.length ? Math.min.apply(null, coupes) : entier.length;
+  t = entier.slice(0, coupure);
+  let reste = entier.slice(coupure);
   t = t.replace(/[^\p{L}\d)\]!?»"']+$/u, '').replace(/[:：]\s*$/, '').trim();
   if (t.length > 70) t = t.slice(0, 68).replace(/\s+\S*$/, '') + '…';
-  return t;
+  const lettres = (t.match(/\p{L}/gu) || []).length;
+  const capitales = (t.match(/\p{Lu}/gu) || []).length;
+  if (lettres > 6 && capitales / lettres > 0.8) t = t.charAt(0) + t.slice(1).toLowerCase();
+  t = t.charAt(0).toUpperCase() + t.slice(1);
+  /* « — Ep. 6/7 », « partie 2/3 » : numérotation de série, pas une description */
+  reste = reste.replace(/^[^\p{L}\d]*(ep\.?|[ée]pisode|partie|part|vol\.?)?\s*\d+\s*[\/\-]\s*\d+\b/iu, '');
+  return { titre: t, reste: reste.trim() };
+}
+
+function couperTitre(l) { return decouperEntete(l).titre; }
+
+/* Un bon titre nomme un plat, tient sur une ligne et ne raconte rien. */
+function noteTitre(t, rang) {
+  if (!t) return -999;
+  let n = 100 - rang * 12;
+  const lettres = (t.match(/\p{L}/gu) || []).length;
+  if (lettres < 5) n -= 80;
+  if (t.length > 70) n -= 25; else if (t.length <= 60) n += 15;
+  if (PLATS.test(t)) n += 50;
+  else if (trouverAliment(t)) n += 12;
+  if (/https?:|www\.|@\w|#\w/.test(t)) n -= 60;
+  if (PROMO.test(t)) n -= 60;
+  if (/^(bonjour|salut|hello|coucou|hey|bonsoir)\b/i.test(t)) n -= 75;
+  if (/\b(aujourd'hui|je vous (montre|propose|partage)|on se retrouve|nouvelle vid[ée]o)\b/i.test(t)) n -= 55;
+  if (/\b(je|j'ai|vous|tu |c'est|qui |que |parce|omg|trop bon|voici)\b/i.test(t)) n -= 28;
+  if (/[.!?]$/.test(t)) n -= 8;
+  if (lettres / Math.max(1, t.length) < 0.55) n -= 25;
+  return n;
+}
+
+/* Aucun titre convenable : on le fabrique à partir du contenu. */
+function titreDeSecours(r) {
+  const texte = [r.titre, r.chapeau, r.etapes.map(e => e.texte).join(' ')].join(' ');
+  const plat = (texte.match(PLATS) || [])[0];
+  const banals = /farine|sucre|sel\b|poivre|eau|huile|levure|beurre|lait|oeuf|maizena|edulcorant/;
+  const vedettes = [];
+  for (const i of r.ingredients) {
+    if (!i.aliment || banals.test(i.aliment)) continue;
+    if (!vedettes.includes(i.aliment)) vedettes.push(i.aliment);
+    if (vedettes.length >= 3) break;
+  }
+  const maj = x => x.charAt(0).toUpperCase() + x.slice(1);
+  if (plat) {
+    const p = norm(plat);
+    const estIngredient = r.ingredients.some(i => i.aliment && (i.aliment.includes(p) || p.includes(i.aliment)));
+    const autres = vedettes.filter(v => !v.includes(p) && !p.includes(v));
+    if (!estIngredient) return maj(plat.toLowerCase()) + (autres.length ? ' (' + autres.slice(0, 2).join(', ') + ')' : '');
+  }
+  if (vedettes.length) return maj(vedettes.slice(0, 3).join(', '));
+  return 'Recette sans titre';
 }
 
 function ressembleIngredient(l) {
@@ -872,20 +941,28 @@ function parseLegende(texte, source) {
     }
   }
 
-  const bonTitre = l => {
-    if (!l || l.length < 3) return false;
-    if (/https?:\/\/|www\./i.test(l)) return false;
-    const lettres = (l.match(/\p{L}/gu) || []).length;
-    return lettres >= 6 && lettres / l.length > 0.55;
-  };
-  const ligneTitre = entete.find(bonTitre) || utiles.find(bonTitre) || 'Recette sans titre';
-  r.titre = couperTitre(ligneTitre) || 'Recette sans titre';
-  let reste = '';
-  const noyau = r.titre.replace(/…$/, '');
-  const pos = ligneTitre.indexOf(noyau);
-  if (pos >= 0 && noyau.length > 3) reste = ligneTitre.slice(pos + noyau.length).trim();
-  const suite = [reste].concat(entete.filter(l => l !== ligneTitre)).filter(Boolean).join(' ');
-  r.chapeau = suite.length > 4 ? suite.slice(0, 320) : '';
+  const candidates = (entete.length ? entete : utiles).slice(0, 5);
+  let ligneTitre = '', decoupe = { titre: '', reste: '' }, meilleure = -999;
+  candidates.forEach((l, rang) => {
+    const d = decouperEntete(l);
+    const n = noteTitre(d.titre, rang);
+    if (n > meilleure) { meilleure = n; ligneTitre = l; decoupe = d; }
+  });
+  r.titre = decoupe.titre || '';
+  r.titreFaible = meilleure < 45 || !r.titre;
+
+  /* Description : la suite de la ligne de titre, puis les autres lignes
+     d'en-tête, débarrassées des appels à l'abonnement. */
+  const morceaux = [decoupe.reste].concat(entete.filter(l => l !== ligneTitre));
+  const phrases = morceaux.join(' ').split(/(?<=[.!?…])\s+/)
+    .map(x => x.replace(/^[^\p{L}\d«"]+/u, '').trim())
+    .filter(x => x.length > 3 && !PROMO.test(x) && !/^#/.test(x));
+  let chapeau = '';
+  for (const ph of phrases) {
+    if ((chapeau + ' ' + ph).trim().length > 260) break;
+    chapeau = (chapeau + ' ' + ph).trim();
+  }
+  r.chapeau = chapeau;
 
   const mp = texte.match(/pour\s+(\d+)\s*(personnes?|pers|parts?|portions?)/i);
   if (mp) r.portions = Math.min(24, Number(mp[1]));
@@ -924,6 +1001,8 @@ function parseLegende(texte, source) {
     const s = r.etapes.reduce((a, e) => a + (e.minuteur || 0), 0);
     if (s) r.tempsCuisson = Math.round(s / 60);
   }
+  if (r.titreFaible || !r.titre) r.titre = titreDeSecours(r);
+  delete r.titreFaible;
   r.etiquettes = hashtags.slice(0, 8);
   r.etiquettes = deduire(r);
   r.nutrition = calculeNutrition(r);
