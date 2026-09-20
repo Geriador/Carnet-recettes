@@ -1,0 +1,1636 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Le Carnet — recettes glanées</title>
+<meta name="theme-color" content="#181C19">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,800&family=Karla:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --nuit:#181C19; --ardoise:#222723; --ardoise-h:#2C322D; --trait:#38403A;
+  --encre:#EFEBE1; --encre-douce:#9AA69C; --safran:#F2A93B; --basilic:#7FB07F; --brulure:#D2603A;
+  --r:14px; --sp:16px;
+  --serif:"Fraunces",Georgia,"Times New Roman",serif;
+  --sans:"Karla",system-ui,-apple-system,"Segoe UI",sans-serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px);-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--nuit);color:var(--encre);font-family:var(--sans);font-size:16px;line-height:1.5;
+  overflow-x:hidden;-webkit-tap-highlight-color:transparent}
+img{max-width:100%;display:block}
+button,input,select,textarea{font:inherit;color:inherit}
+button{background:none;border:0;cursor:pointer}
+:focus-visible{outline:2px solid var(--safran);outline-offset:2px;border-radius:6px}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+
+/* ---------- ossature ---------- */
+.enveloppe{max-width:1100px;margin:0 auto;padding:0 var(--sp) 120px}
+header.tete{padding:22px 0 10px;display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+.marque{font-family:var(--serif);font-weight:800;font-size:clamp(26px,7vw,38px);line-height:1;letter-spacing:-.02em;margin:0}
+.marque span{display:block;font-family:var(--sans);font-weight:500;font-size:13px;letter-spacing:.01em;
+  color:var(--encre-douce);margin-top:6px}
+.compteur{font-family:var(--serif);font-size:13px;color:var(--encre-douce);text-align:right;white-space:nowrap}
+.compteur b{display:block;font-size:26px;color:var(--safran);font-weight:600;line-height:1}
+
+.cherche{position:relative;margin:14px 0 6px}
+.cherche input{width:100%;padding:13px 14px 13px 42px;background:var(--ardoise);border:1px solid var(--trait);
+  border-radius:var(--r);color:var(--encre)}
+.cherche input::placeholder{color:var(--encre-douce)}
+.cherche svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);width:18px;height:18px;stroke:var(--encre-douce);fill:none;stroke-width:2}
+
+nav.onglets{display:flex;gap:4px;margin:14px 0 4px;border-bottom:1px solid var(--trait)}
+nav.onglets button{padding:10px 12px;font-weight:500;color:var(--encre-douce);border-bottom:2px solid transparent;
+  margin-bottom:-1px;display:flex;align-items:center;gap:7px}
+nav.onglets button[aria-selected="true"]{color:var(--encre);border-bottom-color:var(--safran)}
+.pastille{background:var(--safran);color:#20160A;font-size:11px;font-weight:700;border-radius:999px;padding:1px 6px;min-width:18px;text-align:center}
+.pastille[hidden]{display:none}
+
+/* ---------- filtres ---------- */
+.filtres{display:flex;gap:8px;overflow-x:auto;padding:14px 0 6px;scrollbar-width:none}
+.filtres::-webkit-scrollbar{display:none}
+.puce{flex:0 0 auto;padding:7px 13px;border:1px solid var(--trait);border-radius:999px;color:var(--encre-douce);
+  font-size:14px;white-space:nowrap;transition:background .15s,color .15s}
+.puce[aria-pressed="true"]{background:var(--safran);border-color:var(--safran);color:#20160A;font-weight:700}
+.rangee-tri{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:2px 0 12px;font-size:14px;color:var(--encre-douce)}
+.rangee-tri select{background:var(--ardoise);border:1px solid var(--trait);border-radius:10px;padding:7px 10px}
+
+/* ---------- grille ---------- */
+.grille{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:14px}
+.fiche{background:var(--ardoise);border-radius:var(--r);overflow:hidden;text-align:left;display:flex;flex-direction:column;
+  border:1px solid var(--trait);transition:transform .12s}
+.fiche:active{transform:scale(.985)}
+.vignette{aspect-ratio:1;background:var(--ardoise-h);position:relative;display:grid;place-items:center;overflow:hidden}
+.vignette img{width:100%;height:100%;object-fit:cover}
+.vignette .vide{font-family:var(--serif);font-size:34px;color:var(--trait)}
+.vignette .kcal{position:absolute;left:8px;bottom:8px;background:rgba(10,12,10,.78);backdrop-filter:blur(4px);
+  border-radius:8px;padding:3px 7px;font-size:12px;font-weight:700}
+.vignette .coche{position:absolute;right:8px;top:8px;width:24px;height:24px;border-radius:999px;background:var(--basilic);
+  color:#0E1A0E;display:grid;place-items:center;font-size:13px;font-weight:700}
+.corps-fiche{padding:10px 11px 12px}
+.corps-fiche h3{font-family:var(--serif);font-size:16px;font-weight:600;line-height:1.2;margin:0 0 6px}
+.meta{font-size:12.5px;color:var(--encre-douce);display:flex;flex-wrap:wrap;gap:4px 10px}
+
+/* ---------- boîte de réception ---------- */
+.attente{display:flex;gap:12px;align-items:center;background:var(--ardoise);border:1px solid var(--trait);
+  border-left:3px solid var(--safran);border-radius:12px;padding:12px;margin-bottom:10px;width:100%;text-align:left}
+.attente .lien{font-size:13px;color:var(--encre-douce);word-break:break-all;line-height:1.35}
+.attente .titre{font-family:var(--serif);font-size:15px;font-weight:600;margin-bottom:3px}
+.attente img{width:52px;height:52px;border-radius:9px;object-fit:cover;flex:0 0 auto}
+
+.vide-etat{text-align:center;padding:54px 18px;color:var(--encre-douce)}
+.vide-etat p{max-width:36ch;margin:0 auto 18px;font-size:15px}
+.vide-etat .glyphe{font-family:var(--serif);font-size:56px;color:var(--trait);line-height:1}
+
+/* ---------- boutons ---------- */
+.bouton{background:var(--safran);color:#20160A;font-weight:700;padding:12px 18px;border-radius:12px;display:inline-flex;
+  align-items:center;gap:8px;justify-content:center}
+.bouton.fantome{background:transparent;border:1px solid var(--trait);color:var(--encre);font-weight:500}
+.bouton.danger{background:transparent;border:1px solid var(--brulure);color:var(--brulure);font-weight:500}
+.bouton:disabled{opacity:.45}
+.fab{position:fixed;right:18px;bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:40;
+  background:var(--safran);color:#20160A;font-weight:700;border-radius:999px;padding:15px 20px;
+  box-shadow:0 8px 26px rgba(0,0,0,.45);display:flex;align-items:center;gap:8px}
+
+/* ---------- panneaux ---------- */
+.panneau{position:fixed;inset:0;z-index:60;background:var(--nuit);overflow-y:auto;
+  padding:env(safe-area-inset-top,0px) 0 calc(30px + env(safe-area-inset-bottom,0px));
+  animation:monte .18s ease-out}
+@keyframes monte{from{transform:translateY(14px);opacity:.4}to{transform:none;opacity:1}}
+.panneau[hidden]{display:none}
+.barre-panneau{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:12px 16px;background:rgba(24,28,25,.93);backdrop-filter:blur(8px);border-bottom:1px solid var(--trait)}
+.barre-panneau h2{font-family:var(--serif);font-size:17px;font-weight:600;margin:0;flex:1;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ferme{width:36px;height:36px;border-radius:999px;background:var(--ardoise);display:grid;place-items:center;font-size:19px;flex:0 0 auto}
+.dedans{max-width:760px;margin:0 auto;padding:0 16px}
+
+/* ---------- fiche recette ---------- */
+.illus{width:100%;aspect-ratio:4/3;object-fit:cover;background:var(--ardoise)}
+.titre-recette{font-family:var(--serif);font-size:clamp(24px,6.4vw,34px);font-weight:800;line-height:1.08;
+  letter-spacing:-.02em;margin:18px 0 8px}
+.chapeau{color:var(--encre-douce);font-size:15px;margin:0 0 16px;max-width:62ch}
+.etiquettes{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:18px}
+.etq{font-size:12.5px;padding:4px 10px;border-radius:999px;background:var(--ardoise-h);color:var(--encre-douce)}
+.etq.actif{background:var(--safran);color:#20160A;font-weight:700}
+
+.bandeau-nutri{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--trait);
+  border:1px solid var(--trait);border-radius:12px;overflow:hidden;margin:6px 0 10px}
+.bandeau-nutri div{background:var(--ardoise);padding:11px 8px;text-align:center}
+.bandeau-nutri .v{font-family:var(--serif);font-size:19px;font-weight:600;color:var(--safran);line-height:1.1}
+.bandeau-nutri .l{font-size:11px;color:var(--encre-douce);margin-top:3px}
+.detail-nutri{width:100%;font-size:13.5px;color:var(--encre-douce);border-collapse:collapse;margin-bottom:6px}
+.detail-nutri td{padding:5px 0;border-bottom:1px solid var(--trait)}
+.detail-nutri td:last-child{text-align:right;color:var(--encre)}
+.fiabilite{font-size:12.5px;color:var(--encre-douce);margin:0 0 22px}
+
+.rubrique{font-family:var(--serif);font-size:20px;font-weight:600;margin:26px 0 12px;
+  display:flex;align-items:center;justify-content:space-between;gap:12px}
+.molette{display:flex;align-items:center;gap:0;background:var(--ardoise);border:1px solid var(--trait);border-radius:999px}
+.molette button{width:34px;height:34px;display:grid;place-items:center;font-size:18px;color:var(--safran)}
+.molette span{font-family:var(--sans);font-size:14px;font-weight:700;min-width:74px;text-align:center}
+ul.ingredients{list-style:none;margin:0;padding:0}
+ul.ingredients li{display:flex;gap:12px;padding:10px 2px;border-bottom:1px solid var(--trait);align-items:baseline}
+ul.ingredients .q{font-family:var(--serif);font-weight:600;color:var(--safran);min-width:74px;flex:0 0 auto;font-size:15px}
+ul.ingredients .n{flex:1}
+ul.ingredients .inconnu{font-size:11px;color:var(--brulure);margin-left:6px}
+ol.etapes{list-style:none;counter-reset:e;margin:0;padding:0}
+ol.etapes li{counter-increment:e;display:flex;gap:14px;padding:12px 0;border-bottom:1px solid var(--trait)}
+ol.etapes li::before{content:counter(e);font-family:var(--serif);font-size:15px;font-weight:600;color:var(--safran);
+  flex:0 0 auto;width:26px;height:26px;border:1px solid var(--trait);border-radius:999px;display:grid;place-items:center}
+ol.etapes p{margin:0;flex:1;max-width:62ch}
+.minuteur{margin-top:7px;font-size:13px;color:var(--safran);border:1px solid var(--trait);border-radius:999px;padding:3px 10px;display:inline-block}
+
+.journal{background:var(--ardoise);border:1px solid var(--trait);border-radius:var(--r);padding:16px;margin:26px 0}
+.etoiles{display:flex;gap:4px;margin:8px 0 14px}
+.etoiles button{font-size:25px;color:var(--trait);line-height:1}
+.etoiles button.on{color:var(--safran)}
+.journal textarea{width:100%;background:var(--nuit);border:1px solid var(--trait);border-radius:10px;padding:11px;min-height:76px;resize:vertical}
+.rangee-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.source{font-size:13px;color:var(--encre-douce);margin:22px 0;word-break:break-all}
+.source a{color:var(--safran)}
+
+/* ---------- ajout ---------- */
+.zone{width:100%;background:var(--ardoise);border:1px solid var(--trait);border-radius:12px;padding:13px;
+  min-height:190px;resize:vertical;font-size:15px;line-height:1.5}
+.aide{font-size:13.5px;color:var(--encre-douce);margin:10px 0 16px;max-width:62ch}
+.choix-fichier{display:block;border:1px dashed var(--trait);border-radius:12px;padding:18px;text-align:center;
+  color:var(--encre-douce);margin:12px 0;cursor:pointer}
+.champ{display:block;margin-bottom:14px}
+.champ span{display:block;font-size:13px;color:var(--encre-douce);margin-bottom:5px}
+.champ input,.champ select,.champ textarea{width:100%;background:var(--ardoise);border:1px solid var(--trait);
+  border-radius:10px;padding:11px}
+.duo{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+/* ---------- courses / semaine ---------- */
+.rayon{font-family:var(--serif);font-size:17px;font-weight:600;color:var(--safran);margin:22px 0 8px}
+.ligne-course{display:flex;align-items:center;gap:11px;padding:9px 0;border-bottom:1px solid var(--trait)}
+.ligne-course input{width:20px;height:20px;accent-color:var(--safran);flex:0 0 auto}
+.ligne-course.fait{opacity:.4;text-decoration:line-through}
+.ligne-course .q{color:var(--encre-douce);font-size:14px;margin-left:auto;text-align:right}
+.jour{border:1px solid var(--trait);border-radius:12px;padding:13px;margin-bottom:11px;background:var(--ardoise)}
+.jour h3{font-family:var(--serif);font-size:16px;margin:0 0 9px;font-weight:600}
+.creneau{display:flex;align-items:center;gap:10px;padding:6px 0;font-size:14.5px}
+.creneau .etiq-c{color:var(--encre-douce);font-size:12.5px;width:58px;flex:0 0 auto}
+.creneau .nom{flex:1;color:var(--encre)}
+.creneau .nom.libre{color:var(--trait)}
+
+/* ---------- mode cuisine ---------- */
+#cuisine{background:#0E110F;display:flex;flex-direction:column}
+#cuisine .haut{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--trait)}
+#cuisine .progression{font-size:13px;color:var(--encre-douce)}
+#cuisine .scene{flex:1;display:flex;flex-direction:column;justify-content:center;padding:24px 22px;max-width:680px;margin:0 auto;width:100%}
+#cuisine .num{font-family:var(--serif);font-size:15px;color:var(--safran);margin-bottom:14px}
+#cuisine .texte{font-family:var(--serif);font-size:clamp(23px,5.6vw,31px);line-height:1.32;font-weight:400;margin:0 0 20px}
+#cuisine .ingr-etape{font-size:14.5px;color:var(--encre-douce);border-top:1px solid var(--trait);padding-top:14px}
+#cuisine .bas{display:flex;gap:11px;padding:16px 18px calc(22px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--trait)}
+#cuisine .bas button{flex:1;padding:16px;border-radius:12px;font-weight:700}
+.chrono{font-family:var(--serif);font-size:38px;color:var(--safran);font-weight:600;margin:6px 0 14px}
+
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(92px + env(safe-area-inset-bottom,0px));
+  background:var(--ardoise-h);border:1px solid var(--trait);border-radius:999px;padding:11px 20px;font-size:14.5px;
+  z-index:90;box-shadow:0 8px 24px rgba(0,0,0,.5);max-width:90vw;text-align:center}
+.toast[hidden]{display:none}
+.tourne{display:inline-block;width:14px;height:14px;border:2px solid var(--trait);border-top-color:var(--safran);
+  border-radius:999px;animation:t .7s linear infinite;vertical-align:-2px}
+@keyframes t{to{transform:rotate(360deg)}}
+@media(min-width:620px){.grille{grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:18px}}
+</style>
+</head>
+<body>
+<div class="enveloppe">
+  <header class="tete">
+    <h1 class="marque">Le Carnet<span>ce que tu as enregistré, enfin rangé</span></h1>
+    <div class="compteur"><b id="cpt">0</b>recettes</div>
+  </header>
+
+  <label class="cherche">
+    <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    <input id="recherche" type="search" placeholder="Un plat, un ingrédient, un créateur…" autocomplete="off">
+  </label>
+
+  <nav class="onglets" role="tablist">
+    <button role="tab" data-vue="biblio" aria-selected="true">Recettes</button>
+    <button role="tab" data-vue="attente">À compléter <span class="pastille" id="pastille-attente" hidden>0</span></button>
+    <button role="tab" data-vue="courses">Courses</button>
+    <button role="tab" data-vue="semaine">Semaine</button>
+  </nav>
+
+  <section id="vue-biblio">
+    <div class="filtres" id="filtres"></div>
+    <div class="rangee-tri">
+      <span id="resume-filtre">Toutes les recettes</span>
+      <select id="tri">
+        <option value="recent">Plus récentes</option>
+        <option value="titre">Ordre alphabétique</option>
+        <option value="temps">Les plus rapides</option>
+        <option value="kcal">Moins de calories</option>
+        <option value="kcal-desc">Plus de calories</option>
+        <option value="note">Mieux notées</option>
+      </select>
+    </div>
+    <div class="grille" id="grille"></div>
+  </section>
+
+  <section id="vue-attente" hidden></section>
+  <section id="vue-courses" hidden></section>
+  <section id="vue-semaine" hidden></section>
+</div>
+
+<button class="fab" id="fab">＋ Ajouter</button>
+
+<div class="panneau" id="panneau-ajout" hidden></div>
+<div class="panneau" id="panneau-recette" hidden></div>
+<div class="panneau" id="cuisine" hidden></div>
+<div class="toast" id="toast" hidden></div>
+<script>
+'use strict';
+/* ============================================================
+   Le Carnet — bibliothèque de recettes glanées sur les réseaux
+   Fichier unique. Fonctionne hors ligne. Aucune donnée ne sort
+   du téléphone, sauf si tu demandes une extraction par Claude.
+   ============================================================ */
+
+const VERSION = 'carnet-v1';
+const $ = (s, r) => (r || document).querySelector(s);
+const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const norm = s => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[’']/g, "'").trim();
+const esc = s => (s == null ? '' : String(s)).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const arrondi = (n, d) => { const f = Math.pow(10, d || 0); return Math.round(n * f) / f; };
+
+function toast(msg, ms) {
+  const t = $('#toast');
+  t.innerHTML = msg; t.hidden = false;
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => { t.hidden = true; }, ms || 2600);
+}
+
+/* ---------------- stockage ---------------- */
+const DB = (() => {
+  let p = null;
+  function ouvrir() {
+    if (p) return p;
+    p = new Promise((res, rej) => {
+      const r = indexedDB.open('carnet', 1);
+      r.onupgradeneeded = () => {
+        const d = r.result;
+        if (!d.objectStoreNames.contains('recettes')) d.createObjectStore('recettes', { keyPath: 'id' });
+        if (!d.objectStoreNames.contains('medias')) d.createObjectStore('medias');
+        if (!d.objectStoreNames.contains('reglages')) d.createObjectStore('reglages');
+      };
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    });
+    return p;
+  }
+  async function tx(store, mode, fn) {
+    const d = await ouvrir();
+    return new Promise((res, rej) => {
+      const t = d.transaction(store, mode);
+      const rq = fn(t.objectStore(store));
+      t.oncomplete = () => res(rq && rq.result);
+      t.onerror = () => rej(t.error);
+    });
+  }
+  return {
+    tout: () => tx('recettes', 'readonly', s => s.getAll()),
+    put: r => tx('recettes', 'readwrite', s => s.put(r)),
+    del: id => tx('recettes', 'readwrite', s => s.delete(id)),
+    media: (k, b) => b === undefined ? tx('medias', 'readonly', s => s.get(k)) : tx('medias', 'readwrite', s => s.put(b, k)),
+    delMedia: k => tx('medias', 'readwrite', s => s.delete(k)),
+    reglage: (k, v) => v === undefined ? tx('reglages', 'readonly', s => s.get(k)) : tx('reglages', 'readwrite', s => s.put(v, k))
+  };
+})();
+
+/* ---------------- état ---------------- */
+const App = {
+  recettes: [],
+  vue: 'biblio',
+  filtres: new Set(),
+  tri: 'recent',
+  q: '',
+  courses: { choisies: [], cochees: [] },
+  semaine: {},
+  urlsMedias: new Map()
+};
+
+async function urlMedia(cle) {
+  if (!cle) return null;
+  if (App.urlsMedias.has(cle)) return App.urlsMedias.get(cle);
+  const b = await DB.media(cle);
+  if (!b) return null;
+  const u = URL.createObjectURL(b);
+  App.urlsMedias.set(cle, u);
+  return u;
+}
+
+function recette(id) { return App.recettes.find(r => r.id === id); }
+
+async function sauver(r) {
+  r.majLe = Date.now();
+  await DB.put(r);
+  const i = App.recettes.findIndex(x => x.id === r.id);
+  if (i < 0) App.recettes.push(r); else App.recettes[i] = r;
+}
+
+/* squelette d'une recette */
+function neuve(base) {
+  return Object.assign({
+    id: uid(), creeLe: Date.now(), majLe: Date.now(),
+    etat: 'attente',          // attente | prete
+    titre: '', chapeau: '',
+    portions: 4,
+    tempsPrep: 0, tempsCuisson: 0,
+    ingredients: [],           // {qte, unite, nom, brut, grammes, aliment}
+    etapes: [],                // {texte, minuteur}
+    etiquettes: [],            // moment, type de plat, régime, matériel…
+    proteine: '', cout: 0, difficulte: 0,
+    nutrition: null,
+    source: { plateforme: '', url: '', auteur: '', texte: '' },
+    media: null, mediaPerso: null,
+    teste: false, note: 0, notes: '', cuisineLe: []
+  }, base || {});
+}
+/* ============================================================
+   Table de composition (valeurs indicatives pour 100 g, d'après
+   les ordres de grandeur de la table CIQUAL de l'ANSES)
+   nom;synonymes | kcal,prot,lip,sat,gluc,sucres,fibres,sel | poids d'une unité (g) | rayon
+   ============================================================ */
+function cleAliment(s) {
+  return norm(s).replace(/\(.*?\)/g, ' ').replace(/['’]/g, ' ')
+    .replace(MOTS_VIDES, ' ').replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+const MOTS_VIDES = /\b(de|du|des|d|la|le|les|a|au|aux|en|bio|frais|fraiche|fraiches|surgele|surgeles|rape|rapee|hache|hachee|coupe|coupee|emince|emincee|moulu|moulue|entier|entiere|petit|petite|gros|grosse|environ|facultatif|bien|mur|mure|nature)\b/g;
+
+const RAYONS = { F: 'Fruits et légumes', B: 'Boucherie, poissonnerie', C: 'Crèmerie', P: 'Féculents, pain', E: 'Épicerie salée', S: 'Épicerie sucrée', A: 'Herbes, épices, sauces', X: 'Autres' };
+
+const TABLE = `
+farine;farine de ble;farine t55|340,10,1,0.2,71,1,3,0|0|P
+maizena;fecule;fecule de mais|350,0.3,0.1,0,85,0,1,0|0|P
+sucre;sucre en poudre;sucre blanc|400,0,0,0,100,100,0,0|0|S
+cassonade;sucre roux;sucre complet|390,0,0,0,97,96,0,0|0|S
+sucre glace|400,0,0,0,100,99,0,0|0|S
+sucre vanille|400,0,0,0,98,98,0,0|8|S
+miel|320,0.3,0,0,80,78,0,0|0|S
+sirop d erable|270,0,0,0,67,60,0,0|0|S
+levure chimique;levure|100,0,0,0,25,0,0,10|11|P
+levure de boulanger|110,14,2,0.4,8,0,2,0|8|P
+beurre|750,0.7,83,52,0.6,0.6,0,0.8|0|C
+huile d olive;huile|900,0,100,14,0,0,0,0|0|E
+huile de coco|900,0,100,87,0,0,0,0|0|E
+oeuf;oeufs;œuf|145,12.7,9.8,2.8,0.3,0.3,0,0.33|55|C
+blanc d oeuf|48,11,0.2,0,0.7,0.7,0,0.2|33|C
+jaune d oeuf|320,16,29,9,0.6,0.6,0,0.1|18|C
+lait|65,3.3,3.6,2.3,4.8,4.8,0,0.1|0|C
+lait demi ecreme|46,3.3,1.6,1,4.8,4.8,0,0.1|0|C
+lait d amande;lait vegetal|25,0.5,1.5,0.1,2.5,2.5,0.3,0.1|0|C
+lait de coco|200,2,20,17,3,3,0,0|0|E
+creme de coco|300,2,30,26,4,3,0,0|0|E
+creme fraiche;creme epaisse|300,2.3,30,20,3,3,0,0.1|0|C
+creme liquide;creme entiere|200,2.5,20,13,3,3,0,0.1|0|C
+yaourt;yaourt nature|60,4,3.2,2,4.5,4.5,0,0.1|125|C
+yaourt grec|120,5,9,6,3,3,0,0.1|150|C
+skyr|60,11,0.2,0,4,4,0,0.1|150|C
+fromage blanc|75,7.5,3,2,4,4,0,0.1|0|C
+ricotta|140,10,9,6,3,3,0,0.2|0|C
+mascarpone|400,4,42,28,3,3,0,0.1|0|C
+fromage frais;philadelphia;saint moret|250,6,24,15,4,4,0,0.9|0|C
+fromage rape;gruyere rape|380,27,30,19,1,1,0,1.5|0|C
+emmental;gruyere|370,28,29,18,1,1,0,0.7|0|C
+parmesan|400,35,28,18,1,1,0,1.5|0|C
+mozzarella|280,18,22,14,1,1,0,1.3|125|C
+chevre;fromage de chevre|290,18,23,15,1,1,0,1.4|0|C
+feta|260,14,21,14,1,1,0,3|0|C
+comte|410,27,33,21,0.5,0.5,0,0.8|0|C
+cheddar|400,25,33,21,1,1,0,1.8|0|C
+riz;riz basmati;riz cru|350,7,1,0.2,78,0.2,1.4,0|0|P
+riz cuit|130,2.6,0.4,0.1,28,0.1,0.5,0|0|P
+pates;spaghetti;penne;tagliatelles|360,12,1.5,0.3,72,3,3,0|0|P
+pates cuites|140,5,0.9,0.1,27,1,1.5,0|0|P
+nouilles;nouilles chinoises|360,11,2,0.4,71,2,3,0.3|0|P
+pain|265,8,1.5,0.3,50,3,3,1.2|0|P
+pain complet|250,9,2,0.4,44,3,6,1.2|0|P
+chapelure|370,12,4,0.8,68,3,4,1.5|0|P
+pomme de terre;pommes de terre|80,2,0.2,0,17,0.8,1.8,0|150|F
+patate douce|90,1.6,0.2,0,20,5,3,0|200|F
+semoule;couscous|360,12,1,0.2,73,1,3,0|0|P
+boulgour|350,11,1.5,0.3,70,1,8,0|0|P
+quinoa|370,14,6,0.7,58,2,7,0|0|P
+polenta|360,8,1.5,0.3,77,1,4,0|0|P
+flocons d avoine;avoine|370,13,7,1.3,59,1,10,0|0|P
+lentilles|115,9,0.5,0.1,16,0.6,5,0|0|P
+pois chiches|140,8,2.6,0.3,18,1,6,0.3|0|P
+haricots rouges|120,8,0.5,0.1,17,0.5,6,0|0|P
+gnocchi|170,4,1,0.2,35,1,2,0.8|0|P
+pate feuilletee|380,5,24,12,35,2,1.5,1|230|P
+pate brisee;pate sablee|430,6,26,13,42,2,2,1|230|P
+pate a pizza|270,8,3,0.5,50,2,2,1|250|P
+tortilla;wrap;galette de ble|300,8,7,2,49,2,3,1.2|50|P
+feuille de brick|300,9,2,0.3,60,1,2,1|20|P
+poulet;blanc de poulet;filet de poulet|120,23,2,0.6,0,0,0,0.1|150|B
+cuisse de poulet;haut de cuisse|180,19,12,3.5,0,0,0,0.1|140|B
+dinde;escalope de dinde|110,24,1.5,0.5,0,0,0,0.1|120|B
+boeuf hache;viande hachee;steak hache|190,20,12,5,0,0,0,0.1|125|B
+boeuf;steak;bavette|150,26,5,2,0,0,0,0.1|150|B
+porc;filet mignon|200,20,13,5,0,0,0,0.1|150|B
+lardons;bacon|300,14,27,11,0.5,0.5,0,2.5|0|B
+jambon|110,20,3,1,1,1,0,2.3|45|B
+chorizo|380,23,32,12,2,1,0,3.5|0|B
+saucisse;merguez|300,14,27,10,1,1,0,1.8|70|B
+agneau|230,18,17,8,0,0,0,0.15|150|B
+veau|130,21,5,2,0,0,0,0.1|150|B
+saumon;pave de saumon|200,20,13,2.5,0,0,0,0.1|130|B
+saumon fume|180,22,10,2,0,0,0,3|40|B
+cabillaud;colin;poisson blanc|80,18,0.7,0.1,0,0,0,0.2|130|B
+thon|130,25,3,1,0,0,0,0.3|0|B
+crevettes;gambas|100,20,1,0.3,0,0,0,1|0|B
+moules|90,16,2,0.4,3,0,0,0.6|0|B
+tofu|120,12,7,1,2,0.5,1,0|0|C
+oignon;oignons|40,1.2,0.2,0,7,5,1.7,0|150|F
+oignon rouge|40,1.2,0.2,0,7,5,1.7,0|150|F
+ail;gousse d ail|130,6,0.5,0.1,23,1,2,0|5|F
+echalote|60,2,0.2,0,12,4,3,0|30|F
+tomate;tomates|20,0.8,0.2,0,3,2.6,1.2,0|120|F
+tomates cerises|22,0.9,0.2,0,3,2.8,1.2,0|10|F
+tomates concassees;pulpe de tomate;coulis de tomate|30,1.2,0.2,0,4,3.5,1,0.2|400|E
+concentre de tomate|90,4.5,0.5,0.1,15,12,3,0.5|0|E
+carotte;carottes|35,0.6,0.2,0,7,5,2.5,0.05|110|F
+courgette;courgettes|20,1.2,0.3,0.1,2,2,1,0|250|F
+aubergine|25,1,0.2,0,3,3,2.5,0|300|F
+poivron|30,1,0.3,0,5,4,1.7,0|160|F
+champignon;champignons|25,2.5,0.4,0.1,1,0.7,2,0|20|F
+brocoli|35,3,0.4,0.1,3,1.5,3,0|400|F
+epinards|25,2.5,0.5,0.1,1,0.5,2,0.1|0|F
+haricots verts|30,1.8,0.2,0,4,2,3,0|0|F
+petits pois|80,5.5,0.5,0.1,10,3,5,0|0|F
+chou fleur|25,2,0.3,0,2.5,2,2,0|600|F
+chou|28,1.6,0.2,0,3.5,3,2.5,0|800|F
+poireau|30,1.5,0.3,0,4,2,2.5,0|150|F
+salade;laitue;roquette|15,1.2,0.2,0,1,1,1.5,0|200|F
+concombre|12,0.6,0.1,0,1.8,1.5,0.7,0|300|F
+avocat|165,2,15,2.2,2,0.7,6,0|150|F
+mais|95,3,1.2,0.2,17,3,3,0.3|0|E
+citron|30,0.8,0.3,0,3,2.5,2,0|100|F
+citron vert;lime|30,0.7,0.2,0,3,1.7,2.8,0|70|F
+pomme;pommes|55,0.3,0.2,0,12,11,2,0|150|F
+banane|90,1.1,0.3,0.1,20,17,2,0|120|F
+fraise;fraises|35,0.7,0.3,0,6,5,2,0|15|F
+framboise;framboises|45,1.2,0.6,0,5,4,6.5,0|0|F
+myrtille;myrtilles|55,0.7,0.4,0,11,10,3,0|0|F
+orange|45,1,0.2,0,9,8,2,0|180|F
+ananas|50,0.5,0.2,0,11,10,1.4,0|0|F
+mangue|60,0.8,0.4,0.1,13,12,1.8,0|250|F
+poire|55,0.4,0.2,0,13,10,3,0|160|F
+peche|40,0.9,0.2,0,9,8,1.8,0|140|F
+raisin|70,0.6,0.3,0,16,15,1,0|0|F
+datte;dattes|290,2.5,0.4,0,67,63,7,0|8|S
+abricot sec|250,3.4,0.5,0,55,50,7,0|8|S
+amande;amandes;poudre d amande|620,21,53,4,5,4,11,0|1|S
+noix|690,15,65,6,5,2.5,6,0|5|S
+noisette;noisettes|650,15,62,4.5,5,4,9,0|1|S
+cacahuete;cacahuetes|600,25,48,7,8,4,8,0.5|1|S
+beurre de cacahuete|600,25,50,9,12,6,6,0.5|0|S
+noix de cajou|580,18,44,8,20,6,3,0|1.5|S
+graines de chia|460,17,31,3,5,1,34,0|0|S
+sesame;graines de sesame|600,18,55,8,5,0.3,11,0|0|A
+noix de coco rapee|620,7,62,55,7,6,16,0|0|S
+chocolat noir|550,7,38,22,35,30,10,0|0|S
+chocolat au lait;chocolat|540,7,31,19,55,52,3,0.2|0|S
+pepites de chocolat|500,5,25,15,60,55,4,0.1|0|S
+cacao;cacao en poudre|350,20,11,6,10,1,30,0|0|S
+speculoos;biscuit;biscuits|480,5,20,10,70,35,2,0.8|6|S
+moutarde|150,7,10,0.6,5,3,3,5|0|A
+mayonnaise|700,1,76,6,2,2,0,1.2|0|A
+ketchup|110,1.2,0.2,0,24,21,1,2|0|A
+sauce soja|60,6,0,0,5,2,0,17|0|A
+vinaigre;vinaigre balsamique|60,0.5,0,0,12,12,0,0|0|A
+vin blanc|80,0.1,0,0,2,1,0,0|0|E
+vin rouge|85,0.1,0,0,2.5,0.6,0,0|0|E
+bouillon;cube de bouillon|200,10,10,5,15,5,0,50|10|A
+curry;curcuma|320,12,14,2,25,3,33,0.1|0|A
+paprika|280,14,13,2,20,10,35,0.1|0|A
+cumin|375,18,22,1.5,27,2,11,0.4|0|A
+herbes de provence;origan;thym|270,10,5,1,25,3,30,0|0|A
+persil|40,3,0.8,0.1,3,1,4,0.05|0|A
+basilic|30,3,0.6,0,1,0.3,3,0|0|A
+coriandre|30,2,0.5,0,1,0.9,3,0|0|A
+menthe|45,3.3,0.7,0,4,0,8,0|0|A
+gingembre|70,1.8,0.8,0.2,13,1.7,2,0|0|A
+sel|0,0,0,0,0,0,0,100|0|A
+poivre|250,10,3,1,40,1,26,0|0|A
+`.trim().split('\n').map(l => {
+  const [noms, vals, poids, rayon] = l.split('|');
+  const v = vals.split(',').map(Number);
+  const syn = noms.split(';').map(cleAliment);
+  return { cle: syn[0], syn, kcal: v[0], prot: v[1], lip: v[2], sat: v[3], gluc: v[4], sucres: v[5], fibres: v[6], sel: v[7], unite: Number(poids) || 0, rayon: rayon || 'X' };
+});
+
+function trouverAliment(nom) {
+  const n = cleAliment(nom);
+  if (!n) return null;
+  let exact = null, partiel = null, longueur = 0;
+  for (const a of TABLE) {
+    for (const s of a.syn) {
+      if (n === s) { exact = a; break; }
+      if ((n.includes(s) || s.includes(n)) && s.length > longueur && s.length > 2) { partiel = a; longueur = s.length; }
+    }
+    if (exact) break;
+  }
+  return exact || partiel;
+}
+
+/* ---------------- unités ---------------- */
+const UNITES = [
+  [/^(kg|kilos?|kilogrammes?)$/, 1000], [/^(g|gr|grammes?)$/, 1], [/^mg$/, 0.001],
+  [/^(l|litres?)$/, 1000], [/^(dl)$/, 100], [/^(cl)$/, 10], [/^(ml|millilitres?)$/, 1],
+  [/^(c\.?\s*a\.?\s*s\.?|cas|cs|cuilleres? a soupe|cuillere a soupe|cuilleree a soupe|tbsp)$/, 15],
+  [/^(c\.?\s*a\.?\s*c\.?|cac|cc|cuilleres? a cafe|cuillere a cafe|cuillere a the|tsp)$/, 5],
+  [/^(pincees?)$/, 1], [/^(gousses?)$/, 5], [/^(verres?)$/, 200], [/^(tasses?|cup|cups)$/, 240],
+  [/^(bols?)$/, 300], [/^(bottes?)$/, 80], [/^(branches?|brins?)$/, 8], [/^(feuilles?)$/, 3],
+  [/^(filets?|traits?)$/, 5], [/^(noix)$/, 15], [/^(sachets?)$/, 10], [/^(boites?|conserves?)$/, 400],
+  [/^(tranches?)$/, 25], [/^(oz)$/, 28], [/^(lb)$/, 454]
+];
+const MOT_NOMBRE = { un: 1, une: 1, deux: 2, trois: 3, quatre: 4, cinq: 5, six: 6, sept: 7, huit: 8, neuf: 9, dix: 10, douze: 12, demi: .5, demie: .5, quelques: 3 };
+
+function litQuantite(txt) {
+  let t = txt.replace(/^[\s\-–—•·*▪◾✔✅🔸🔹▫️◽➡️👉🥄🥣🧂🍳🧈🥚🧄🧅🍅🥕🧀🍋🌿🥩🍗🐟🍚🍝🥔🍫🍯➖]+/gu, '').trim();
+  t = t.replace(/½/g, '0.5').replace(/¼/g, '0.25').replace(/¾/g, '0.75').replace(/⅓/g, '0.33').replace(/⅔/g, '0.66');
+  const m = t.match(/^((?:\d+\s*[\/]\s*\d+)|(?:\d+(?:[.,]\d+)?))\s*(?:a|-|à)?\s*(?:\d+(?:[.,]\d+)?)?\s*(.*)$/i);
+  let qte = null, reste = t;
+  if (m) {
+    if (m[1].includes('/')) { const p = m[1].split('/'); qte = Number(p[0]) / Number(p[1]); }
+    else qte = Number(m[1].replace(',', '.'));
+    reste = m[2];
+  } else {
+    const mm = t.match(/^(un|une|deux|trois|quatre|cinq|six|sept|huit|neuf|dix|douze|demi|demie|quelques)\s+(.*)$/i);
+    if (mm) { qte = MOT_NOMBRE[norm(mm[1])]; reste = mm[2]; }
+  }
+  let unite = '', reste2 = reste;
+  const mu = reste.match(/^([a-zA-Zà-ÿµ°.\s]{1,22}?)\s+(?:de\s+|d[’']\s*)(.+)$/);
+  const candidats = [];
+  if (mu) candidats.push([mu[1], mu[2]]);
+  const mu2 = reste.match(/^([a-zA-Z]{1,4})\s*(.+)$/);
+  if (mu2) candidats.push([mu2[1], mu2[2]]);
+  const mu3 = reste.match(/^([a-zA-Z]{1,4})$/);
+  if (mu3) candidats.push([mu3[1], '']);
+  for (const [u, r] of candidats) {
+    const nu = norm(u).replace(/\.$/, '');
+    if (UNITES.some(([re]) => re.test(nu))) { unite = nu; reste2 = r; break; }
+  }
+  let nomFinal = reste2.replace(/^[,:\-–\s]+/, '').trim();
+  if (qte == null) {
+    const fin = nomFinal.match(/^(.*?)[\s:]+(\d+(?:[.,]\d+)?)\s*(kg|g|gr|ml|cl|dl|l)\.?$/i);
+    if (fin) { nomFinal = fin[1].trim(); qte = Number(fin[2].replace(',', '.')); unite = norm(fin[3]); }
+  }
+  return { qte, unite, nom: nomFinal };
+}
+
+function enGrammes(ing) {
+  if (ing.grammes != null && ing.grammesFige) return ing.grammes;
+  const a = ing.aliment ? TABLE.find(x => x.cle === ing.aliment) : null;
+  if (ing.unite) {
+    const u = UNITES.find(([re]) => re.test(ing.unite));
+    if (u) return (ing.qte || 1) * u[1];
+  }
+  if (ing.qte != null && a && a.unite) return ing.qte * a.unite;
+  if (ing.qte != null && ing.qte <= 12) return ing.qte * 100;
+  return null;
+}
+
+/* ---------------- nutrition ---------------- */
+function calculeNutrition(r) {
+  let n = { kcal: 0, prot: 0, lip: 0, sat: 0, gluc: 0, sucres: 0, fibres: 0, sel: 0 };
+  let connus = 0, total = 0;
+  for (const ing of r.ingredients) {
+    total++;
+    const a = ing.aliment ? TABLE.find(x => x.cle === ing.aliment) : null;
+    const g = enGrammes(ing);
+    if (!a || g == null) continue;
+    connus++;
+    for (const k in n) n[k] += a[k] * g / 100;
+  }
+  const p = Math.max(1, r.portions || 1);
+  for (const k in n) n[k] = arrondi(n[k] / p, k === 'kcal' ? 0 : 1);
+  n.couverture = total ? Math.round(connus / total * 100) : 0;
+  n.connus = connus; n.total = total;
+  return n;
+}
+
+/* ---------------- déduction des étiquettes ---------------- */
+const INDICES = {
+  'Petit-déjeuner': /pancake|crepe|porridge|granola|overnight|brioche|tartine|smoothie bowl|petit dejeuner|french toast|pain perdu|muesli/,
+  'Dessert': /gateau|tarte|mousse|tiramisu|cheesecake|creme brulee|fondant|moelleux|glace|cookie|brownie|clafoutis|panna cotta|dessert|flan|sorbet/,
+  'Goûter': /cookie|muffin|barre|madeleine|gouter|energy ball|financier|pancake/,
+  'Apéritif': /aperitif|apero|dip|houmous|tapenade|feuillete|verrine|toast|bouchee|nuggets/,
+  'Soupe': /soupe|veloute|bouillon|potage|minestrone/,
+  'Salade': /salade|taboule|poke bowl|buddha bowl/,
+  'Four': /four|enfourner|prechauff|gratin|rotir|cuire au four/,
+  'Airfryer': /airfryer|air fryer|friteuse a air/,
+  'Sans cuisson': /sans cuisson|no bake|frigo une nuit|au refrigerateur/,
+  'Une seule poêle': /une seule poele|one pan|meme poele/,
+  'Mijoté': /mijoter|cocotte|mijote|slow cook/,
+  'Batch cooking': /batch|congeler|se conserve|conservation/
+};
+const PROTEINES = [
+  ['Poulet', /poulet|dinde|volaille/], ['Bœuf', /boeuf|steak|bavette|bourguignon|viande hachee/],
+  ['Porc', /porc|lardon|jambon|bacon|chorizo|saucisse|filet mignon/], ['Agneau', /agneau|mouton/],
+  ['Poisson', /saumon|cabillaud|thon|colin|poisson|truite|merlu|sardine/],
+  ['Fruits de mer', /crevette|gambas|moule|calamar|fruits de mer|st jacques|saint jacques/],
+  ['Œuf', /oeuf|œuf/], ['Tofu', /tofu|tempeh|seitan/]
+];
+const ANIMAL = /lait|beurre|creme|fromage|yaourt|oeuf|œuf|miel|parmesan|mozzarella|feta|chevre|ricotta|mascarpone/;
+const GLUTEN = /farine|ble|pain|pate|pates|semoule|couscous|boulgour|chapelure|biscuit|brioche|orge|seigle|speculoos|wrap|tortilla|gnocchi/;
+const LACTOSE = /lait|beurre|creme|fromage|yaourt|parmesan|mozzarella|feta|chevre|ricotta|mascarpone|emmental|gruyere|comte|cheddar/;
+
+function deduire(r) {
+  const texte = norm([r.titre, r.chapeau, r.ingredients.map(i => i.nom).join(' '), r.etapes.map(e => e.texte).join(' ')].join(' '));
+  const ingr = norm(r.ingredients.map(i => i.nom).join(' '));
+  const etq = new Set(r.etiquettes.filter(t => t && t.startsWith('#')));
+  for (const [nom, re] of Object.entries(INDICES)) if (re.test(texte)) etq.add(nom);
+  let prot = '';
+  for (const [nom, re] of PROTEINES) if (re.test(ingr)) { prot = prot || nom; etq.add(nom); }
+  const carne = /poulet|dinde|boeuf|porc|agneau|lardon|jambon|bacon|chorizo|saucisse|viande|saumon|cabillaud|thon|poisson|crevette|moule|gambas|anchois|volaille/.test(ingr);
+  if (!carne) {
+    etq.add('Végétarien');
+    if (!ANIMAL.test(ingr)) etq.add('Végétalien');
+  }
+  if (!GLUTEN.test(ingr)) etq.add('Sans gluten');
+  if (!LACTOSE.test(ingr)) etq.add('Sans lactose');
+  const t = (r.tempsPrep || 0) + (r.tempsCuisson || 0);
+  if (t && t <= 20) etq.add('Moins de 20 min');
+  if (!etq.has('Dessert') && !etq.has('Petit-déjeuner') && !etq.has('Goûter') && !etq.has('Apéritif')) etq.add('Plat');
+  r.proteine = prot || (etq.has('Végétarien') ? 'Végétarien' : '');
+  return Array.from(etq);
+}
+
+/* ---------------- parseur de légende ---------------- */
+const RE_INGR = /^\s*[^a-z0-9]{0,4}\s*(ingr[ée]dients?|il (te|vous) faut|il faut|ingredients|liste de courses|pour la (p[âa]te|garniture|sauce|cr[èe]me|marinade)|garniture|marinade|sauce)\s*(\([^)]*\))?\s*[:：]?\s*$/i;
+const RE_ETAPE = /^\s*[^a-z0-9]{0,4}\s*(pr[ée]paration|[ée]tapes?|recette|instructions?|method|steps|r[ée]alisation|comment faire|on y va)\s*[:：]?\s*$/i;
+const RE_QTE = /^\s*[^a-zA-Z]{0,4}\s*((\d+[.,]?\d*)|½|¼|¾|⅓|⅔|un |une |deux |trois |quatre |cinq |six |quelques )/;
+const VERBES = /^(mélange|melange|ajoute|verse|fais|faites|mettre|mets|met|cuire|cuis|préchauffe|prechauffe|incorpore|réserve|reserve|découpe|decoupe|coupe|émince|emince|épluche|epluche|battre|bats|fouette|laisse|enfourne|dispose|assaisonne|sale|poivre|arrose|nappe|démoule|demoule|servir|sers|saupoudre|pétris|petris|étale|etale|badigeonne|remue|porte|plonge|égoutte|egoutte|filtre|dans un|dans une|dans le|dans la|pendant|au four|à la poêle|a la poele|commence|termine|enfin|ensuite|puis)/i;
+
+function parseLegende(texte, source) {
+  const r = neuve({ source: Object.assign({ plateforme: '', url: '', auteur: '', texte: texte }, source || {}) });
+  const lignes = texte.replace(/\r/g, '').split('\n').map(l => l.trim());
+  const hashtags = [];
+  const utiles = [];
+  for (let l of lignes) {
+    const tags = l.match(/#[\p{L}\d_]+/gu);
+    if (tags) { tags.forEach(t => hashtags.push(t)); l = l.replace(/#[\p{L}\d_]+/gu, '').trim(); }
+    const au = l.match(/@([\w.]+)/);
+    if (au) { if (!r.source.auteur) r.source.auteur = '@' + au[1]; l = l.replace(/@[\w.]+/g, '').trim(); }
+    if (l.replace(/[^\p{L}\d]/gu, '').length > 1) utiles.push(l);
+  }
+  let iIngr = -1, iEtape = -1;
+  utiles.forEach((l, i) => {
+    if (iIngr < 0 && RE_INGR.test(l)) iIngr = i;
+    if (iEtape < 0 && RE_ETAPE.test(l) && i > iIngr) iEtape = i;
+  });
+
+  let blocIngr = [], blocEtapes = [], entete = [];
+  if (iIngr >= 0) {
+    entete = utiles.slice(0, iIngr);
+    const fin = iEtape > iIngr ? iEtape : utiles.length;
+    blocIngr = utiles.slice(iIngr + 1, fin).filter(l => !RE_INGR.test(l));
+    if (iEtape > iIngr) blocEtapes = utiles.slice(iEtape + 1);
+  } else {
+    utiles.forEach((l, i) => {
+      if (RE_QTE.test(l) && l.length < 70 && !/^\s*\d+\s*[.)]\s/.test(l)) blocIngr.push(l);
+      else if (l.length > 28 && VERBES.test(l)) blocEtapes.push(l);
+      else if (blocIngr.length === 0 && blocEtapes.length === 0) entete.push(l);
+      else if (blocEtapes.length) blocEtapes.push(l);
+    });
+  }
+
+  const ligneTitre = entete.find(l => l.length > 2 && l.length < 90) || utiles[0] || 'Recette sans titre';
+  r.titre = ligneTitre.replace(/^[^\p{L}\d]+/u, '').replace(/[^\p{L}\d)\]!?»"']+$/u, '').replace(/[:：]\s*$/, '').trim();
+  if (r.titre.length > 70) r.titre = r.titre.slice(0, 68) + '…';
+  const suite = entete.filter(l => l !== ligneTitre).join(' ');
+  r.chapeau = suite.length > 4 ? suite.slice(0, 320) : '';
+
+  const mp = texte.match(/pour\s+(\d+)\s*(personnes?|pers|parts?|portions?)/i);
+  if (mp) r.portions = Math.min(24, Number(mp[1]));
+  const mprep = texte.match(/pr[ée]paration\s*[:：]?\s*(\d+)\s*(min|mn)/i);
+  if (mprep) r.tempsPrep = Number(mprep[1]);
+  const mcuis = texte.match(/cuisson\s*[:：]?\s*(\d+)\s*(min|mn)/i);
+  if (mcuis) r.tempsCuisson = Number(mcuis[1]);
+
+  r.ingredients = blocIngr.map(l => {
+    const { qte, unite, nom } = litQuantite(l);
+    const a = trouverAliment(nom || l);
+    return { qte, unite, nom: (nom || l).replace(/\s+/g, ' ').trim(), brut: l, aliment: a ? a.cle : null };
+  }).filter(i => i.nom.length > 1);
+
+  r.etapes = blocEtapes.map(l => l.replace(/^\s*(\d+[.)°]|[-–—•·*▪✅👉➡️])\s*/u, '').trim())
+    .filter(l => l.length > 3)
+    .map(texteEtape => {
+      const m = texteEtape.match(/(\d+)\s*(?:à|-)?\s*(\d+)?\s*(min|mn|minutes?|h|heures?|secondes?|sec)\b/i);
+      let minuteur = 0;
+      if (m) {
+        const v = Number(m[2] || m[1]);
+        const u = norm(m[3]);
+        minuteur = u.startsWith('h') ? v * 3600 : u.startsWith('sec') ? v : v * 60;
+        if (minuteur > 6 * 3600) minuteur = 0;
+      }
+      return { texte: texteEtape, minuteur };
+    });
+
+  if (!r.tempsCuisson && r.etapes.length) {
+    const s = r.etapes.reduce((a, e) => a + (e.minuteur || 0), 0);
+    if (s) r.tempsCuisson = Math.round(s / 60);
+  }
+  r.etiquettes = hashtags.slice(0, 8);
+  r.etiquettes = deduire(r);
+  r.nutrition = calculeNutrition(r);
+  r.etat = (r.ingredients.length >= 2 && r.etapes.length >= 1) ? 'prete' : 'attente';
+  return r;
+}
+/* ============================================================
+   Vues
+   ============================================================ */
+const FILTRES = [
+  { id: 'Petit-déjeuner' }, { id: 'Plat' }, { id: 'Dessert' }, { id: 'Goûter' }, { id: 'Apéritif' },
+  { id: 'Soupe' }, { id: 'Salade' },
+  { id: 'Poulet' }, { id: 'Bœuf' }, { id: 'Porc' }, { id: 'Poisson' }, { id: 'Œuf' }, { id: 'Végétarien' },
+  { id: 'Moins de 20 min' }, { id: 'Four' }, { id: 'Airfryer' }, { id: 'Sans cuisson' },
+  { id: 'Sans gluten' }, { id: 'Sans lactose' },
+  { id: 'Moins de 500 kcal', test: r => r.nutrition && r.nutrition.kcal > 0 && r.nutrition.kcal <= 500 },
+  { id: 'Déjà testées', test: r => r.teste },
+  { id: 'Jamais testées', test: r => !r.teste }
+];
+
+function passeFiltres(r) {
+  for (const id of App.filtres) {
+    const f = FILTRES.find(x => x.id === id);
+    const ok = f && f.test ? f.test(r) : (r.etiquettes || []).includes(id);
+    if (!ok) return false;
+  }
+  if (App.q) {
+    const foin = norm([r.titre, r.chapeau, (r.etiquettes || []).join(' '), r.source.auteur,
+    r.ingredients.map(i => i.nom).join(' ')].join(' '));
+    if (!norm(App.q).split(/\s+/).every(m => foin.includes(m))) return false;
+  }
+  return true;
+}
+
+function tempsTotal(r) { return (r.tempsPrep || 0) + (r.tempsCuisson || 0); }
+
+function trier(liste) {
+  const l = liste.slice();
+  const par = {
+    recent: (a, b) => b.creeLe - a.creeLe,
+    titre: (a, b) => a.titre.localeCompare(b.titre, 'fr'),
+    temps: (a, b) => (tempsTotal(a) || 9999) - (tempsTotal(b) || 9999),
+    kcal: (a, b) => ((a.nutrition && a.nutrition.kcal) || 9999) - ((b.nutrition && b.nutrition.kcal) || 9999),
+    'kcal-desc': (a, b) => ((b.nutrition && b.nutrition.kcal) || 0) - ((a.nutrition && a.nutrition.kcal) || 0),
+    note: (a, b) => (b.note || 0) - (a.note || 0) || b.creeLe - a.creeLe
+  };
+  return l.sort(par[App.tri] || par.recent);
+}
+
+function rendreFiltres() {
+  const c = $('#filtres');
+  c.innerHTML = FILTRES.map(f =>
+    `<button class="puce" data-f="${esc(f.id)}" aria-pressed="${App.filtres.has(f.id)}">${esc(f.id)}</button>`).join('');
+  c.onclick = e => {
+    const b = e.target.closest('[data-f]'); if (!b) return;
+    const id = b.dataset.f;
+    App.filtres.has(id) ? App.filtres.delete(id) : App.filtres.add(id);
+    rendreFiltres(); rendreBiblio();
+  };
+}
+
+function carte(r) {
+  const t = tempsTotal(r);
+  const meta = [];
+  if (t) meta.push(t >= 60 ? Math.floor(t / 60) + ' h ' + (t % 60 ? (t % 60) + ' min' : '') : t + ' min');
+  if (r.proteine) meta.push(r.proteine);
+  else if ((r.etiquettes || [])[0]) meta.push(r.etiquettes[0]);
+  const kcal = r.nutrition && r.nutrition.kcal ? `<span class="kcal">${r.nutrition.kcal} kcal</span>` : '';
+  return `<button class="fiche" data-id="${r.id}">
+    <span class="vignette" data-media="${esc(r.mediaPerso || r.media || '')}">
+      <span class="vide">${esc((r.titre || '?').slice(0, 1).toUpperCase())}</span>${kcal}
+      ${r.teste ? '<span class="coche">✓</span>' : ''}
+    </span>
+    <span class="corps-fiche">
+      <h3>${esc(r.titre || 'Sans titre')}</h3>
+      <span class="meta">${meta.map(m => `<span>${esc(m)}</span>`).join('')}</span>
+    </span>
+  </button>`;
+}
+
+async function peuplerVignettes(racine) {
+  for (const v of $$('[data-media]', racine)) {
+    const cle = v.dataset.media; if (!cle) continue;
+    const u = await urlMedia(cle);
+    if (u) v.insertAdjacentHTML('afterbegin', `<img src="${u}" alt="">`);
+    v.removeAttribute('data-media');
+  }
+}
+
+function rendreBiblio() {
+  const pretes = App.recettes.filter(r => r.etat === 'prete');
+  const liste = trier(pretes.filter(passeFiltres));
+  const g = $('#grille');
+  $('#resume-filtre').textContent = App.filtres.size || App.q
+    ? `${liste.length} recette${liste.length > 1 ? 's' : ''} sur ${pretes.length}`
+    : `${pretes.length} recette${pretes.length > 1 ? 's' : ''}`;
+  if (!liste.length) {
+    g.innerHTML = `<div class="vide-etat" style="grid-column:1/-1">
+      <p class="glyphe">✳</p>
+      <p>${pretes.length ? 'Aucune recette ne correspond. Retire un filtre pour élargir.' :
+        'Ton carnet est vide. Partage une publication Instagram vers Le Carnet, ou colle la légende d’une recette.'}</p>
+      ${pretes.length ? '' : '<button class="bouton" onclick="ouvrirAjout()">Ajouter une recette</button>'}
+    </div>`;
+    return;
+  }
+  g.innerHTML = liste.map(carte).join('');
+  g.onclick = e => { const b = e.target.closest('[data-id]'); if (b) ouvrirRecette(b.dataset.id); };
+  peuplerVignettes(g);
+}
+
+function rendreAttente() {
+  const v = $('#vue-attente');
+  const liste = App.recettes.filter(r => r.etat === 'attente').sort((a, b) => b.creeLe - a.creeLe);
+  const n = liste.length;
+  const p = $('#pastille-attente'); p.hidden = !n; p.textContent = n;
+  if (!n) {
+    v.innerHTML = `<div class="vide-etat"><p class="glyphe">◷</p>
+      <p>Rien en attente. Ce que tu partages depuis Instagram ou Facebook atterrit ici, avec le lien, puis tu le complètes quand tu veux.</p></div>`;
+    return;
+  }
+  v.innerHTML = `<p class="aide" style="margin-top:16px">Ces publications attendent leur recette. Ouvre-les, colle la légende ou dépose une capture d’écran : le reste se remplit tout seul.</p>` +
+    liste.map(r => `<button class="attente" data-id="${r.id}">
+      <span class="vignette" data-media="${esc(r.media || '')}" style="width:52px;height:52px;border-radius:9px;flex:0 0 auto"><span class="vide" style="font-size:20px">↗</span></span>
+      <span style="flex:1;min-width:0">
+        <span class="titre">${esc(r.titre || 'Publication partagée')}</span>
+        <span class="lien">${esc(r.source.auteur ? r.source.auteur + ' — ' : '')}${esc((r.source.url || 'sans lien').replace(/^https?:\/\//, '').slice(0, 64))}</span>
+      </span>
+    </button>`).join('');
+  v.onclick = e => { const b = e.target.closest('[data-id]'); if (b) ouvrirRecette(b.dataset.id); };
+  peuplerVignettes(v);
+}
+
+/* ---------------- courses ---------------- */
+function agregerCourses(ids) {
+  const paniers = new Map();
+  for (const id of ids) {
+    const r = recette(id); if (!r) continue;
+    for (const ing of r.ingredients) {
+      const a = ing.aliment ? TABLE.find(x => x.cle === ing.aliment) : null;
+      const cle = a ? a.cle : norm(ing.nom).replace(MOTS_VIDES, ' ').replace(/\s+/g, ' ').trim();
+      if (!cle) continue;
+      const g = enGrammes(ing);
+      const e = paniers.get(cle) || { nom: a ? a.cle.charAt(0).toUpperCase() + a.cle.slice(1) : ing.nom, rayon: a ? a.rayon : 'X', grammes: 0, libres: [] };
+      if (g != null && a) e.grammes += g; else e.libres.push([ing.qte, ing.unite, ing.nom].filter(Boolean).join(' '));
+      paniers.set(cle, e);
+    }
+  }
+  const parRayon = {};
+  for (const [cle, e] of paniers) {
+    (parRayon[e.rayon] = parRayon[e.rayon] || []).push(Object.assign({ cle }, e));
+  }
+  return parRayon;
+}
+
+function quantiteLisible(e) {
+  const bouts = [];
+  if (e.grammes) bouts.push(e.grammes >= 1000 ? arrondi(e.grammes / 1000, 2) + ' kg' : Math.round(e.grammes) + ' g');
+  if (e.libres.length) bouts.push(e.libres.slice(0, 3).join(' + '));
+  return bouts.join(' + ');
+}
+
+function rendreCourses() {
+  const v = $('#vue-courses');
+  const pretes = App.recettes.filter(r => r.etat === 'prete');
+  const choisies = App.courses.choisies.filter(id => recette(id));
+  const parRayon = agregerCourses(choisies);
+  const ordre = ['F', 'B', 'C', 'P', 'E', 'S', 'A', 'X'];
+  v.innerHTML = `
+  <p class="aide" style="margin-top:16px">Coche les recettes de la semaine, la liste se fabrique toute seule, regroupée par rayon.</p>
+  <div class="filtres" style="flex-wrap:wrap;overflow:visible">
+    ${pretes.map(r => `<button class="puce" data-pick="${r.id}" aria-pressed="${choisies.includes(r.id)}">${esc(r.titre.slice(0, 26))}</button>`).join('') || '<span class="aide">Aucune recette complète pour l’instant.</span>'}
+  </div>
+  ${choisies.length ? ordre.filter(k => parRayon[k]).map(k => `
+    <h3 class="rayon">${RAYONS[k]}</h3>
+    ${parRayon[k].sort((a, b) => a.nom.localeCompare(b.nom, 'fr')).map(e => `
+      <label class="ligne-course ${App.courses.cochees.includes(e.cle) ? 'fait' : ''}">
+        <input type="checkbox" data-coche="${esc(e.cle)}" ${App.courses.cochees.includes(e.cle) ? 'checked' : ''}>
+        <span>${esc(e.nom)}</span><span class="q">${esc(quantiteLisible(e))}</span>
+      </label>`).join('')}`).join('')
+      + `<div class="rangee-actions"><button class="bouton fantome" id="copier-courses">Copier la liste</button>
+         <button class="bouton fantome" id="vider-courses">Tout décocher</button></div>`
+      : '<div class="vide-etat"><p class="glyphe">☐</p><p>Choisis une ou plusieurs recettes ci-dessus.</p></div>'}`;
+
+  v.onclick = async e => {
+    const p = e.target.closest('[data-pick]');
+    if (p) {
+      const id = p.dataset.pick;
+      const i = App.courses.choisies.indexOf(id);
+      i < 0 ? App.courses.choisies.push(id) : App.courses.choisies.splice(i, 1);
+      await DB.reglage('courses', App.courses); rendreCourses(); return;
+    }
+    if (e.target.id === 'vider-courses') { App.courses.cochees = []; await DB.reglage('courses', App.courses); rendreCourses(); return; }
+    if (e.target.id === 'copier-courses') {
+      const txt = ordre.filter(k => parRayon[k]).map(k => RAYONS[k] + '\n' +
+        parRayon[k].map(x => '- ' + x.nom + (quantiteLisible(x) ? ' : ' + quantiteLisible(x) : '')).join('\n')).join('\n\n');
+      try { await navigator.clipboard.writeText(txt); toast('Liste copiée'); } catch { toast('Copie impossible'); }
+    }
+  };
+  v.onchange = async e => {
+    const c = e.target.closest('[data-coche]'); if (!c) return;
+    const cle = c.dataset.coche;
+    const i = App.courses.cochees.indexOf(cle);
+    i < 0 ? App.courses.cochees.push(cle) : App.courses.cochees.splice(i, 1);
+    await DB.reglage('courses', App.courses);
+    c.closest('.ligne-course').classList.toggle('fait', i < 0);
+  };
+}
+
+/* ---------------- semaine ---------------- */
+const JOURS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+
+function rendreSemaine() {
+  const v = $('#vue-semaine');
+  v.innerHTML = `<p class="aide" style="margin-top:16px">Pose tes repas, puis bascule la semaine entière dans la liste de courses.</p>` +
+    JOURS.map((j, i) => `<div class="jour"><h3>${j}</h3>
+      ${['midi', 'soir'].map(c => {
+      const id = (App.semaine[i] || {})[c];
+      const r = id && recette(id);
+      return `<div class="creneau"><span class="etiq-c">${c === 'midi' ? 'Midi' : 'Soir'}</span>
+        <button class="nom ${r ? '' : 'libre'}" data-jour="${i}" data-creneau="${c}" style="text-align:left">${r ? esc(r.titre) : 'À définir'}</button>
+        ${r ? `<button data-vide="${i}:${c}" style="color:var(--encre-douce);padding:0 6px">✕</button>` : ''}</div>`;
+    }).join('')}</div>`).join('') +
+    `<div class="rangee-actions"><button class="bouton" id="semaine-courses">Envoyer vers les courses</button>
+     <button class="bouton fantome" id="semaine-vide">Vider la semaine</button></div>`;
+
+  v.onclick = async e => {
+    const b = e.target.closest('[data-jour]');
+    if (b) { choisirRecette(async id => { (App.semaine[b.dataset.jour] = App.semaine[b.dataset.jour] || {})[b.dataset.creneau] = id; await DB.reglage('semaine', App.semaine); rendreSemaine(); }); return; }
+    const x = e.target.closest('[data-vide]');
+    if (x) { const [j, c] = x.dataset.vide.split(':'); delete (App.semaine[j] || {})[c]; await DB.reglage('semaine', App.semaine); rendreSemaine(); return; }
+    if (e.target.id === 'semaine-vide') { App.semaine = {}; await DB.reglage('semaine', App.semaine); rendreSemaine(); return; }
+    if (e.target.id === 'semaine-courses') {
+      const ids = [];
+      Object.values(App.semaine).forEach(j => Object.values(j).forEach(id => { if (id && !ids.includes(id)) ids.push(id); }));
+      App.courses.choisies = ids; await DB.reglage('courses', App.courses);
+      basculer('courses'); toast(ids.length + ' recette' + (ids.length > 1 ? 's' : '') + ' dans les courses');
+    }
+  };
+}
+
+function choisirRecette(cb) {
+  const p = $('#panneau-ajout');
+  const pretes = App.recettes.filter(r => r.etat === 'prete').sort((a, b) => a.titre.localeCompare(b.titre, 'fr'));
+  p.innerHTML = `<div class="barre-panneau"><h2>Choisir une recette</h2><button class="ferme" data-fermer>✕</button></div>
+    <div class="dedans">${pretes.length ? pretes.map(r => `<button class="attente" data-choix="${r.id}"><span style="flex:1"><span class="titre">${esc(r.titre)}</span>
+      <span class="lien">${esc((r.etiquettes || []).slice(0, 3).join(' · '))}</span></span></button>`).join('')
+      : '<p class="aide">Aucune recette complète pour l’instant.</p>'}</div>`;
+  p.hidden = false;
+  p.onclick = e => {
+    if (e.target.closest('[data-fermer]')) { p.hidden = true; return; }
+    const c = e.target.closest('[data-choix]');
+    if (c) { p.hidden = true; cb(c.dataset.choix); }
+  };
+}
+
+function basculer(vue) {
+  App.vue = vue;
+  $$('nav.onglets button').forEach(b => b.setAttribute('aria-selected', b.dataset.vue === vue));
+  ['biblio', 'attente', 'courses', 'semaine'].forEach(v => { $('#vue-' + v).hidden = v !== vue; });
+  $('.cherche').style.display = vue === 'biblio' ? '' : 'none';
+  if (vue === 'biblio') rendreBiblio();
+  if (vue === 'attente') rendreAttente();
+  if (vue === 'courses') rendreCourses();
+  if (vue === 'semaine') rendreSemaine();
+}
+
+function rafraichir() {
+  $('#cpt').textContent = App.recettes.filter(r => r.etat === 'prete').length;
+  const n = App.recettes.filter(r => r.etat === 'attente').length;
+  const p = $('#pastille-attente'); p.hidden = !n; p.textContent = n;
+  basculer(App.vue);
+}
+/* ============================================================
+   Fiche recette
+   ============================================================ */
+let portionsAffichees = null;
+
+function fmtQte(ing, facteur) {
+  if (ing.qte == null) return '';
+  let q = ing.qte * facteur;
+  let u = ing.unite || '';
+  if (u === 'kg' && q < 1) { q *= 1000; u = 'g'; }
+  if (u === 'l' && q < 1) { q *= 1000; u = 'ml'; }
+  const aff = q < 10 ? arrondi(q, 2) : Math.round(q);
+  return (String(aff).replace('.', ',') + ' ' + u).trim();
+}
+
+function fmtDuree(s) {
+  if (s >= 3600) return Math.floor(s / 3600) + ' h' + (s % 3600 ? ' ' + Math.round((s % 3600) / 60) + ' min' : '');
+  return Math.round(s / 60) + ' min';
+}
+
+async function ouvrirRecette(id) {
+  const r = recette(id); if (!r) return;
+  portionsAffichees = r.portions || 4;
+  const p = $('#panneau-recette');
+  p.hidden = false; p.scrollTop = 0;
+  await dessinerRecette(r);
+  p.onclick = e => gererClicRecette(e, r);
+  p.onchange = e => gererChangementRecette(e, r);
+}
+
+async function dessinerRecette(r) {
+  const p = $('#panneau-recette');
+  const facteur = (portionsAffichees || r.portions || 1) / (r.portions || 1);
+  const n = r.nutrition || calculeNutrition(r);
+  const img = await urlMedia(r.mediaPerso || r.media);
+  const t = tempsTotal(r);
+
+  const enAttente = r.etat === 'attente';
+  p.innerHTML = `
+  <div class="barre-panneau">
+    <button class="ferme" data-fermer>←</button>
+    <h2>${esc(r.titre || 'Publication partagée')}</h2>
+    ${enAttente ? '' : '<button class="ferme" data-editer>✎</button>'}
+  </div>
+  ${img ? `<img class="illus" src="${img}" alt="">` : ''}
+  <div class="dedans">
+    <h1 class="titre-recette">${esc(r.titre || 'Publication partagée')}</h1>
+    ${r.chapeau ? `<p class="chapeau">${esc(r.chapeau)}</p>` : ''}
+
+    ${enAttente ? blocCompletion(r) : `
+    <div class="etiquettes">
+      ${(r.etiquettes || []).map(e => `<span class="etq">${esc(e)}</span>`).join('')}
+      ${t ? `<span class="etq actif">${t} min</span>` : ''}
+    </div>
+
+    <div class="bandeau-nutri">
+      <div><div class="v">${n.kcal || '—'}</div><div class="l">kcal</div></div>
+      <div><div class="v">${n.prot || '—'}</div><div class="l">protéines&nbsp;g</div></div>
+      <div><div class="v">${n.lip || '—'}</div><div class="l">lipides&nbsp;g</div></div>
+      <div><div class="v">${n.gluc || '—'}</div><div class="l">glucides&nbsp;g</div></div>
+    </div>
+    <table class="detail-nutri">
+      <tr><td>dont acides gras saturés</td><td>${n.sat} g</td></tr>
+      <tr><td>dont sucres</td><td>${n.sucres} g</td></tr>
+      <tr><td>fibres</td><td>${n.fibres} g</td></tr>
+      <tr><td>sel</td><td>${n.sel} g</td></tr>
+    </table>
+    <p class="fiabilite">Par portion, pour ${r.portions} portion${r.portions > 1 ? 's' : ''}.
+      ${n.couverture >= 85 ? 'Estimation fiable' : n.couverture >= 50 ? 'Estimation partielle' : 'Estimation incomplète'}
+      — ${n.connus} ingrédient${n.connus > 1 ? 's' : ''} sur ${n.total} reconnu${n.connus > 1 ? 's' : ''}.</p>
+
+    <h2 class="rubrique">Ingrédients
+      <span class="molette">
+        <button data-portion="-1" aria-label="Moins de portions">−</button>
+        <span>${portionsAffichees} portion${portionsAffichees > 1 ? 's' : ''}</span>
+        <button data-portion="1" aria-label="Plus de portions">+</button>
+      </span>
+    </h2>
+    <ul class="ingredients">
+      ${r.ingredients.map(i => `<li><span class="q">${esc(fmtQte(i, facteur))}</span>
+        <span class="n">${esc(i.nom)}${i.aliment ? '' : '<span class="inconnu">non chiffré</span>'}</span></li>`).join('')
+      || '<li class="n">Aucun ingrédient enregistré.</li>'}
+    </ul>
+
+    <h2 class="rubrique">Préparation</h2>
+    <ol class="etapes">
+      ${r.etapes.map(e => `<li><p>${esc(e.texte)}${e.minuteur ? `<br><span class="minuteur">⏱ ${fmtDuree(e.minuteur)}</span>` : ''}</p></li>`).join('')
+      || '<li><p>Aucune étape enregistrée.</p></li>'}
+    </ol>
+
+    <div class="journal">
+      <h2 class="rubrique" style="margin-top:0">Mon carnet</h2>
+      <label style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+        <input type="checkbox" data-teste ${r.teste ? 'checked' : ''} style="width:20px;height:20px;accent-color:var(--safran)">
+        <span>Je l’ai cuisinée${r.cuisineLe && r.cuisineLe.length ? ` (${r.cuisineLe.length} fois)` : ''}</span>
+      </label>
+      <div class="etoiles">${[1, 2, 3, 4, 5].map(i => `<button data-note="${i}" class="${(r.note || 0) >= i ? 'on' : ''}" aria-label="${i} sur 5">★</button>`).join('')}</div>
+      <textarea data-notes placeholder="Moins de sucre la prochaine fois, doubler la sauce…">${esc(r.notes || '')}</textarea>
+      <label class="choix-fichier" style="margin-top:12px">📷 ${r.mediaPerso ? 'Remplacer ma photo' : 'Ajouter ma photo du résultat'}
+        <input type="file" accept="image/*" data-photo hidden></label>
+    </div>
+
+    <div class="rangee-actions">
+      <button class="bouton" data-cuisine>Mode cuisine</button>
+      <button class="bouton fantome" data-courses>Ajouter aux courses</button>
+    </div>`}
+
+    ${r.source.url ? `<p class="source">Source : <a href="${esc(r.source.url)}" target="_blank" rel="noopener">${esc(r.source.url.replace(/^https?:\/\//, '').slice(0, 70))}</a>${r.source.auteur ? ' — ' + esc(r.source.auteur) : ''}</p>` : ''}
+    <div class="rangee-actions"><button class="bouton danger" data-supprimer>Supprimer cette recette</button></div>
+  </div>`;
+}
+
+function blocCompletion(r) {
+  return `<p class="aide">Cette publication attend sa recette. Colle la légende (ou le premier commentaire) ci-dessous, ou dépose une capture d’écran.</p>
+    <textarea class="zone" data-legende placeholder="Colle ici la légende de la publication…">${esc(r.source.texte || '')}</textarea>
+    <label class="choix-fichier">🖼 Déposer une capture d’écran ou une photo
+      <input type="file" accept="image/*" multiple data-captures hidden></label>
+    <div class="rangee-actions">
+      <button class="bouton" data-analyser>Créer la fiche</button>
+      <button class="bouton fantome" data-prompt>Copier le texte pour Claude</button>
+      <button class="bouton fantome" data-coller-json>Coller une fiche JSON</button>
+    </div>`;
+}
+
+async function gererClicRecette(e, r) {
+  const p = $('#panneau-recette');
+  if (e.target.closest('[data-fermer]')) { p.hidden = true; rafraichir(); return; }
+  const pl = e.target.closest('[data-portion]');
+  if (pl) { portionsAffichees = Math.max(1, Math.min(30, portionsAffichees + Number(pl.dataset.portion))); dessinerRecette(r); return; }
+  const et = e.target.closest('[data-note]');
+  if (et) { r.note = r.note === Number(et.dataset.note) ? 0 : Number(et.dataset.note); await sauver(r); dessinerRecette(r); return; }
+  if (e.target.closest('[data-cuisine]')) { modeCuisine(r); return; }
+  if (e.target.closest('[data-editer]')) { editer(r); return; }
+  if (e.target.closest('[data-courses]')) {
+    if (!App.courses.choisies.includes(r.id)) App.courses.choisies.push(r.id);
+    await DB.reglage('courses', App.courses); toast('Ajoutée aux courses'); return;
+  }
+  if (e.target.closest('[data-supprimer]')) {
+    if (!confirm('Supprimer « ' + (r.titre || 'cette fiche') + ' » ? C’est définitif.')) return;
+    await DB.del(r.id);
+    if (r.media) DB.delMedia(r.media);
+    App.recettes = App.recettes.filter(x => x.id !== r.id);
+    p.hidden = true; rafraichir(); toast('Recette supprimée'); return;
+  }
+  if (e.target.closest('[data-analyser]')) { await analyser(r); return; }
+  if (e.target.closest('[data-prompt]')) {
+    const txt = $('[data-legende]', p).value;
+    try { await navigator.clipboard.writeText(PROMPT_EXTRACTION + '\n\n---\n' + txt); toast('Texte copié. Colle-le dans Claude, puis rapporte le JSON.'); }
+    catch { toast('Copie impossible'); }
+    return;
+  }
+  if (e.target.closest('[data-coller-json]')) {
+    const j = prompt('Colle ici la fiche JSON produite par Claude :');
+    if (!j) return;
+    try { await appliquerJSON(r, JSON.parse(j.replace(/^```json|```$/g, '').trim())); toast('Fiche complétée'); }
+    catch (err) { toast('JSON illisible'); }
+    return;
+  }
+}
+
+async function gererChangementRecette(e, r) {
+  if (e.target.matches('[data-teste]')) {
+    r.teste = e.target.checked;
+    if (r.teste) (r.cuisineLe = r.cuisineLe || []).push(Date.now());
+    await sauver(r); return;
+  }
+  if (e.target.matches('[data-notes]')) { r.notes = e.target.value; await sauver(r); return; }
+  if (e.target.matches('[data-photo]')) {
+    const f = e.target.files[0]; if (!f) return;
+    const cle = uid(); await DB.media(cle, f); r.mediaPerso = cle; await sauver(r); dessinerRecette(r); toast('Photo enregistrée'); return;
+  }
+  if (e.target.matches('[data-captures]')) {
+    const fs = Array.from(e.target.files);
+    if (!fs.length) return;
+    r._captures = fs;
+    if (!r.media) { const cle = uid(); await DB.media(cle, fs[0]); r.media = cle; await sauver(r); }
+    toast(fs.length + ' image' + (fs.length > 1 ? 's' : '') + ' prête' + (fs.length > 1 ? 's' : '') + ' à analyser');
+  }
+}
+
+/* ============================================================
+   Extraction
+   ============================================================ */
+const PROMPT_EXTRACTION = `Tu reçois la légende d'une publication de réseau social qui contient une recette de cuisine.
+Réponds UNIQUEMENT par un objet JSON valide, sans texte autour, sans balises de code, au format :
+{"titre":"", "chapeau":"une phrase", "portions":4, "tempsPrep":0, "tempsCuisson":0,
+ "ingredients":[{"qte":200,"unite":"g","nom":"farine"}],
+ "etapes":["première étape","deuxième étape"],
+ "etiquettes":["Plat","Four"]}
+Règles : unités en g, ml, cs (cuillère à soupe), cc (cuillère à café), ou vide pour les unités (2 œufs).
+"qte" vaut null si la quantité n'est pas donnée. Traduis en français. N'invente aucun ingrédient absent du texte.`;
+
+async function claudeDispo() {
+  try {
+    if (!window.claude || typeof window.claude.use !== 'function') return null;
+    return await window.claude.use('sample');
+  } catch (e) { return null; }
+}
+
+async function versBase64(f) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(String(r.result).split(',')[1]);
+    r.onerror = () => rej(r.error);
+    r.readAsDataURL(f);
+  });
+}
+
+async function analyser(r) {
+  const p = $('#panneau-recette');
+  const texte = ($('[data-legende]', p) || {}).value || r.source.texte || '';
+  const captures = r._captures || [];
+  if (!texte.trim() && !captures.length) { toast('Colle la légende ou dépose une capture d’écran.'); return; }
+  const bouton = $('[data-analyser]', p);
+  if (bouton) { bouton.disabled = true; bouton.innerHTML = '<span class="tourne"></span> Lecture…'; }
+
+  const sample = await claudeDispo();
+  let ok = false;
+  if (sample) {
+    try {
+      let contenu = [{ type: 'text', text: PROMPT_EXTRACTION + '\n\n---\n' + texte }];
+      const limites = await sample.limits().catch(() => ({}));
+      if (limites && limites.images && captures.length) {
+        for (const f of captures.slice(0, 3)) {
+          contenu.unshift({ type: 'image', source: { type: 'base64', media_type: f.type || 'image/jpeg', data: await versBase64(f) } });
+        }
+      }
+      const j = await sample.json([{ role: 'user', content: contenu }], { modelTier: 'default' });
+      await appliquerJSON(r, j); ok = true;
+    } catch (e) { ok = false; }
+  }
+  if (!ok) {
+    if (!texte.trim()) {
+      toast('Pas de lecture automatique des images ici. Colle la légende, ou passe par « Copier le texte pour Claude ».');
+      if (bouton) { bouton.disabled = false; bouton.textContent = 'Créer la fiche'; }
+      return;
+    }
+    const lu = parseLegende(texte, r.source);
+    Object.assign(r, {
+      titre: lu.titre, chapeau: lu.chapeau, portions: lu.portions, tempsPrep: lu.tempsPrep,
+      tempsCuisson: lu.tempsCuisson, ingredients: lu.ingredients, etapes: lu.etapes,
+      etiquettes: lu.etiquettes, proteine: lu.proteine, nutrition: lu.nutrition, etat: lu.etat
+    });
+    r.source.texte = texte;
+    if (r.etat === 'attente') { r.etat = 'prete'; }
+    await sauver(r);
+  }
+  portionsAffichees = r.portions;
+  delete r._captures;
+  await dessinerRecette(r);
+  rafraichir();
+  toast(ok ? 'Fiche créée par Claude' : 'Fiche créée. Vérifie et corrige avec ✎.');
+}
+
+async function appliquerJSON(r, j) {
+  r.titre = j.titre || r.titre || 'Recette';
+  r.chapeau = j.chapeau || '';
+  r.portions = Math.max(1, Number(j.portions) || 4);
+  r.tempsPrep = Number(j.tempsPrep) || 0;
+  r.tempsCuisson = Number(j.tempsCuisson) || 0;
+  r.ingredients = (j.ingredients || []).map(i => {
+    const nom = String(i.nom || '').trim();
+    const a = trouverAliment(nom);
+    return { qte: i.qte == null ? null : Number(i.qte), unite: norm(i.unite || ''), nom, brut: nom, aliment: a ? a.cle : null };
+  }).filter(i => i.nom);
+  r.etapes = (j.etapes || []).map(t => {
+    const texte = typeof t === 'string' ? t : (t.texte || '');
+    const m = texte.match(/(\d+)\s*(min|mn|minutes?|h|heures?)\b/i);
+    const v = m ? Number(m[1]) : 0;
+    return { texte, minuteur: m ? (norm(m[2]).startsWith('h') ? v * 3600 : v * 60) : 0 };
+  }).filter(e => e.texte);
+  r.etiquettes = Array.isArray(j.etiquettes) ? j.etiquettes.slice(0, 10) : [];
+  r.etiquettes = deduire(r);
+  r.nutrition = calculeNutrition(r);
+  r.etat = 'prete';
+  await sauver(r);
+  portionsAffichees = r.portions;
+  await dessinerRecette(r);
+  rafraichir();
+}
+
+/* ============================================================
+   Édition manuelle
+   ============================================================ */
+function editer(r) {
+  const p = $('#panneau-ajout');
+  p.hidden = false; p.scrollTop = 0;
+  p.innerHTML = `<div class="barre-panneau"><button class="ferme" data-fermer>←</button><h2>Modifier la fiche</h2></div>
+  <div class="dedans">
+    <label class="champ"><span>Titre</span><input id="e-titre" value="${esc(r.titre)}"></label>
+    <label class="champ"><span>Description</span><textarea id="e-chapeau" rows="2">${esc(r.chapeau)}</textarea></label>
+    <div class="duo">
+      <label class="champ"><span>Portions</span><input id="e-portions" type="number" min="1" max="30" value="${r.portions}"></label>
+      <label class="champ"><span>Préparation (min)</span><input id="e-prep" type="number" min="0" value="${r.tempsPrep || 0}"></label>
+    </div>
+    <label class="champ"><span>Cuisson (min)</span><input id="e-cuisson" type="number" min="0" value="${r.tempsCuisson || 0}"></label>
+    <label class="champ"><span>Ingrédients — un par ligne, quantité en tête</span>
+      <textarea id="e-ingr" rows="9">${esc(r.ingredients.map(i => [i.qte != null ? String(i.qte).replace('.', ',') : '', i.unite, i.nom].filter(Boolean).join(' ')).join('\n'))}</textarea></label>
+    <label class="champ"><span>Étapes — une par ligne</span>
+      <textarea id="e-etapes" rows="9">${esc(r.etapes.map(e => e.texte).join('\n'))}</textarea></label>
+    <label class="champ"><span>Lien d’origine</span><input id="e-url" value="${esc(r.source.url || '')}"></label>
+    <div class="rangee-actions"><button class="bouton" id="e-ok">Enregistrer</button>
+      <button class="bouton fantome" data-fermer>Annuler</button></div>
+  </div>`;
+  p.onclick = async e => {
+    if (e.target.closest('[data-fermer]')) { p.hidden = true; return; }
+    if (e.target.id !== 'e-ok') return;
+    r.titre = $('#e-titre').value.trim() || r.titre;
+    r.chapeau = $('#e-chapeau').value.trim();
+    r.portions = Math.max(1, Number($('#e-portions').value) || 4);
+    r.tempsPrep = Number($('#e-prep').value) || 0;
+    r.tempsCuisson = Number($('#e-cuisson').value) || 0;
+    r.source.url = $('#e-url').value.trim();
+    r.ingredients = $('#e-ingr').value.split('\n').map(l => l.trim()).filter(Boolean).map(l => {
+      const { qte, unite, nom } = litQuantite(l);
+      const a = trouverAliment(nom || l);
+      return { qte, unite, nom: (nom || l).trim(), brut: l, aliment: a ? a.cle : null };
+    });
+    r.etapes = $('#e-etapes').value.split('\n').map(l => l.trim()).filter(Boolean).map(texte => {
+      const m = texte.match(/(\d+)\s*(min|mn|minutes?|h|heures?)\b/i);
+      const v = m ? Number(m[1]) : 0;
+      return { texte, minuteur: m ? (norm(m[2]).startsWith('h') ? v * 3600 : v * 60) : 0 };
+    });
+    r.etiquettes = deduire(r);
+    r.nutrition = calculeNutrition(r);
+    r.etat = 'prete';
+    await sauver(r);
+    portionsAffichees = r.portions;
+    p.hidden = true;
+    await dessinerRecette(r); rafraichir(); toast('Fiche enregistrée');
+  };
+}
+
+/* ============================================================
+   Mode cuisine
+   ============================================================ */
+const Cuisine = { r: null, i: 0, chrono: null, reste: 0, veille: null };
+
+async function modeCuisine(r) {
+  if (!r.etapes.length) { toast('Aucune étape à suivre.'); return; }
+  Cuisine.r = r; Cuisine.i = 0;
+  $('#cuisine').hidden = false;
+  try { if ('wakeLock' in navigator) Cuisine.veille = await navigator.wakeLock.request('screen'); } catch (e) { }
+  dessinerCuisine();
+}
+
+function dessinerCuisine() {
+  const { r, i } = Cuisine;
+  const e = r.etapes[i];
+  const facteur = (portionsAffichees || r.portions) / (r.portions || 1);
+  const mots = norm(e.texte);
+  const concernes = r.ingredients.filter(ing => {
+    const n = norm(ing.nom).replace(MOTS_VIDES, ' ').trim().split(' ').filter(w => w.length > 3);
+    return n.some(w => mots.includes(w));
+  });
+  $('#cuisine').innerHTML = `
+    <div class="haut">
+      <button class="ferme" data-sortir>✕</button>
+      <span class="progression">Étape ${i + 1} sur ${r.etapes.length}</span>
+      <span class="progression">${portionsAffichees} portions</span>
+    </div>
+    <div class="scene">
+      <div class="num">${esc(r.titre)}</div>
+      <p class="texte">${esc(e.texte)}</p>
+      ${Cuisine.chrono ? `<div class="chrono" id="affiche-chrono">${fmtChrono(Cuisine.reste)}</div>
+        <div><button class="bouton fantome" data-stop>Arrêter le minuteur</button></div>`
+      : e.minuteur ? `<div><button class="bouton" data-lancer="${e.minuteur}">⏱ Lancer ${fmtDuree(e.minuteur)}</button></div>` : ''}
+      ${concernes.length ? `<div class="ingr-etape">${concernes.map(ing => `${esc(fmtQte(ing, facteur))} ${esc(ing.nom)}`).join(' · ')}</div>` : ''}
+    </div>
+    <div class="bas">
+      <button class="bouton fantome" data-prec ${i === 0 ? 'disabled' : ''}>Précédent</button>
+      <button class="bouton" data-suiv>${i === r.etapes.length - 1 ? 'Terminé' : 'Suivant'}</button>
+    </div>`;
+}
+
+function fmtChrono(s) {
+  const m = Math.floor(s / 60), x = s % 60;
+  return String(m).padStart(2, '0') + ':' + String(x).padStart(2, '0');
+}
+
+function arreterChrono() { clearInterval(Cuisine.chrono); Cuisine.chrono = null; Cuisine.reste = 0; }
+
+$('#cuisine').addEventListener('click', async e => {
+  if (e.target.closest('[data-sortir]')) {
+    arreterChrono();
+    try { if (Cuisine.veille) { await Cuisine.veille.release(); Cuisine.veille = null; } } catch (err) { }
+    $('#cuisine').hidden = true; return;
+  }
+  const l = e.target.closest('[data-lancer]');
+  if (l) {
+    Cuisine.reste = Number(l.dataset.lancer);
+    Cuisine.chrono = setInterval(() => {
+      Cuisine.reste--;
+      const a = $('#affiche-chrono');
+      if (a) a.textContent = fmtChrono(Cuisine.reste);
+      if (Cuisine.reste <= 0) {
+        arreterChrono(); dessinerCuisine();
+        if (navigator.vibrate) navigator.vibrate([400, 200, 400]);
+        toast('⏱ Minuteur terminé');
+      }
+    }, 1000);
+    dessinerCuisine(); return;
+  }
+  if (e.target.closest('[data-stop]')) { arreterChrono(); dessinerCuisine(); return; }
+  if (e.target.closest('[data-prec]')) { Cuisine.i = Math.max(0, Cuisine.i - 1); arreterChrono(); dessinerCuisine(); return; }
+  if (e.target.closest('[data-suiv]')) {
+    if (Cuisine.i === Cuisine.r.etapes.length - 1) {
+      arreterChrono();
+      try { if (Cuisine.veille) { await Cuisine.veille.release(); Cuisine.veille = null; } } catch (err) { }
+      $('#cuisine').hidden = true;
+      const r = Cuisine.r;
+      if (!r.teste) { r.teste = true; (r.cuisineLe = r.cuisineLe || []).push(Date.now()); await sauver(r); await dessinerRecette(r); rafraichir(); }
+      toast('Bon appétit.');
+      return;
+    }
+    Cuisine.i++; arreterChrono(); dessinerCuisine();
+  }
+});
+/* ============================================================
+   Ajouter une recette
+   ============================================================ */
+function ouvrirAjout() {
+  const p = $('#panneau-ajout');
+  p.hidden = false; p.scrollTop = 0;
+  p.innerHTML = `<div class="barre-panneau"><button class="ferme" data-fermer>←</button><h2>Ajouter une recette</h2></div>
+  <div class="dedans">
+    <p class="aide">Colle la légende de la publication — ou son premier commentaire, là où la recette se cache souvent. Le titre, les quantités, les étapes et la valeur nutritionnelle se remplissent ensuite tout seuls.</p>
+    <textarea class="zone" id="a-texte" placeholder="🍝 Pâtes crémeuses au citron&#10;&#10;Ingrédients :&#10;- 300 g de pâtes&#10;- 20 cl de crème&#10;…"></textarea>
+    <label class="champ" style="margin-top:14px"><span>Lien d’origine (facultatif)</span>
+      <input id="a-url" inputmode="url" placeholder="https://www.instagram.com/reel/…"></label>
+    <label class="choix-fichier">🖼 Photo ou capture d’écran (facultatif)
+      <input type="file" accept="image/*" id="a-image" hidden></label>
+    <div class="rangee-actions">
+      <button class="bouton" id="a-creer">Créer la fiche</button>
+      <button class="bouton fantome" id="a-vide">Fiche vierge à remplir</button>
+    </div>
+    <h2 class="rubrique">Sauvegarde</h2>
+    <p class="aide">Tout est stocké sur ton téléphone. Exporte de temps en temps pour ne rien perdre.</p>
+    <div class="rangee-actions">
+      <button class="bouton fantome" id="a-export">Exporter mes recettes</button>
+      <label class="bouton fantome" style="cursor:pointer">Importer une sauvegarde
+        <input type="file" accept="application/json,.json" id="a-import" hidden></label>
+    </div>
+  </div>`;
+
+  p.onclick = async e => {
+    if (e.target.closest('[data-fermer]')) { p.hidden = true; return; }
+    if (e.target.id === 'a-creer') {
+      const texte = $('#a-texte').value.trim();
+      if (!texte) { toast('Colle d’abord la légende.'); return; }
+      const src = { url: $('#a-url').value.trim(), plateforme: plateforme($('#a-url').value), texte };
+      const sample = await claudeDispo();
+      let r;
+      if (sample) {
+        r = neuve({ source: Object.assign({ auteur: '' }, src) });
+        await enregistrerImage(r);
+        await sauver(r);
+        p.hidden = true;
+        await ouvrirRecette(r.id);
+        await analyser(r);
+        return;
+      }
+      r = parseLegende(texte, src);
+      r.etat = 'prete';
+      await enregistrerImage(r);
+      await sauver(r);
+      p.hidden = true; rafraichir(); await ouvrirRecette(r.id);
+      toast('Fiche créée. Vérifie-la et corrige avec ✎.');
+      return;
+    }
+    if (e.target.id === 'a-vide') {
+      const r = neuve({ titre: 'Nouvelle recette', etat: 'prete' });
+      await enregistrerImage(r); await sauver(r);
+      p.hidden = true; rafraichir(); await ouvrirRecette(r.id); editer(r);
+      return;
+    }
+    if (e.target.id === 'a-export') { await exporter(); return; }
+  };
+  p.onchange = async e => {
+    if (e.target.id !== 'a-import') return;
+    const f = e.target.files[0]; if (!f) return;
+    try {
+      const data = JSON.parse(await f.text());
+      const liste = Array.isArray(data) ? data : data.recettes || [];
+      let n = 0;
+      for (const r of liste) {
+        if (!r || !r.id) continue;
+        if (App.recettes.some(x => x.id === r.id)) continue;
+        delete r.media; delete r.mediaPerso;
+        await sauver(r); n++;
+      }
+      rafraichir(); toast(n + ' recette' + (n > 1 ? 's' : '') + ' importée' + (n > 1 ? 's' : ''));
+    } catch (err) { toast('Fichier illisible'); }
+  };
+}
+
+async function enregistrerImage(r) {
+  const i = $('#a-image');
+  if (i && i.files && i.files[0]) { const cle = uid(); await DB.media(cle, i.files[0]); r.media = cle; }
+}
+
+async function exporter() {
+  const data = { app: 'Le Carnet', version: VERSION, date: new Date().toISOString(), recettes: App.recettes };
+  const txt = JSON.stringify(data, null, 1);
+  const nom = 'carnet-recettes-' + new Date().toISOString().slice(0, 10) + '.json';
+  try {
+    const d = window.claude && window.claude.use ? await window.claude.use('downloads') : null;
+    if (d) { await d.save({ filename: nom, data: txt }); toast('Sauvegarde enregistrée'); return; }
+  } catch (e) { }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([txt], { type: 'application/json' }));
+  a.download = nom; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  toast('Sauvegarde téléchargée');
+}
+
+/* ============================================================
+   Réception d'un partage
+   ============================================================ */
+function plateforme(url) {
+  const u = norm(url || '');
+  if (u.includes('instagram')) return 'Instagram';
+  if (u.includes('facebook') || u.includes('fb.watch')) return 'Facebook';
+  if (u.includes('tiktok')) return 'TikTok';
+  if (u.includes('youtu')) return 'YouTube';
+  if (u.includes('pinterest')) return 'Pinterest';
+  return u ? 'Web' : '';
+}
+
+function auteurDepuisUrl(url) {
+  const m = (url || '').match(/instagram\.com\/([\w.]+)\//);
+  return m && !['reel', 'p', 'reels', 'tv'].includes(m[1]) ? '@' + m[1] : '';
+}
+
+async function lireCachePartage() {
+  try {
+    const c = await caches.open('carnet-partage');
+    const rep = await c.match('/__partage');
+    if (!rep) return null;
+    const charge = await rep.json();
+    charge.fichiers = [];
+    for (let i = 0; i < (charge.nbFichiers || 0); i++) {
+      const rf = await c.match('/__partage-fichier-' + i);
+      if (rf) charge.fichiers.push(await rf.blob());
+    }
+    await c.delete('/__partage');
+    for (let i = 0; i < (charge.nbFichiers || 0); i++) await c.delete('/__partage-fichier-' + i);
+    return charge;
+  } catch (e) { return null; }
+}
+
+async function traiterPartage() {
+  const p = new URL(location.href).searchParams;
+  let charge = null;
+  if (p.get('partage')) charge = await lireCachePartage();
+  else if (p.get('url') || p.get('text') || p.get('title')) {
+    charge = { titre: p.get('title') || '', texte: p.get('text') || '', url: p.get('url') || '', fichiers: [] };
+  }
+  if (!charge) return;
+  history.replaceState({}, '', location.pathname);
+
+  const texte = (charge.texte || '').trim();
+  const mu = (charge.url || texte).match(/https?:\/\/\S+/);
+  const url = charge.url || (mu ? mu[0] : '');
+  const src = { url, plateforme: plateforme(url), auteur: auteurDepuisUrl(url), texte };
+  const corps = texte.replace(/https?:\/\/\S+/g, '').trim();
+
+  let r;
+  if (corps.length > 110 && /\n/.test(corps)) { r = parseLegende(corps, src); }
+  else { r = neuve({ source: src, titre: (charge.titre || '').slice(0, 70) }); }
+  if (charge.fichiers && charge.fichiers[0]) { const cle = uid(); await DB.media(cle, charge.fichiers[0]); r.media = cle; }
+  await sauver(r);
+  rafraichir();
+  if (r.etat === 'prete') { await ouvrirRecette(r.id); toast('Recette lue depuis le partage'); }
+  else { basculer('attente'); toast('Publication rangée. Complète-la quand tu veux.'); }
+}
+
+/* ============================================================
+   Démarrage
+   ============================================================ */
+async function demarrer() {
+  try {
+    App.recettes = (await DB.tout()) || [];
+    App.courses = (await DB.reglage('courses')) || { choisies: [], cochees: [] };
+    App.semaine = (await DB.reglage('semaine')) || {};
+  } catch (e) { toast('Stockage indisponible : les ajouts ne seront pas conservés.'); }
+
+  rendreFiltres();
+  $('#fab').onclick = ouvrirAjout;
+  $$('nav.onglets button').forEach(b => b.onclick = () => basculer(b.dataset.vue));
+  let minuterieRecherche;
+  $('#recherche').oninput = e => {
+    clearTimeout(minuterieRecherche);
+    minuterieRecherche = setTimeout(() => { App.q = e.target.value; rendreBiblio(); }, 160);
+  };
+  $('#tri').onchange = e => { App.tri = e.target.value; rendreBiblio(); };
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    for (const id of ['#cuisine', '#panneau-ajout', '#panneau-recette']) {
+      const p = $(id);
+      if (!p.hidden) { p.hidden = true; rafraichir(); break; }
+    }
+  });
+
+  rafraichir();
+  await traiterPartage();
+
+  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+    try { await navigator.serviceWorker.register('sw.js'); } catch (e) { }
+  }
+}
+window.ouvrirAjout = ouvrirAjout;
+demarrer();
+
+</script>
+</body>
+</html>
