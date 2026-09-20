@@ -113,7 +113,13 @@ nav.onglets button[aria-selected="true"]{color:var(--encre);border-bottom-color:
 .dedans{max-width:760px;margin:0 auto;padding:0 16px}
 
 /* ---------- fiche recette ---------- */
-.illus{width:100%;aspect-ratio:4/3;object-fit:cover;background:var(--ardoise)}
+.illus{width:100%;max-height:46vh;aspect-ratio:4/3;object-fit:cover;background:var(--ardoise)}
+.bande-captures{display:flex;gap:8px;overflow-x:auto;padding:2px 0 6px;scrollbar-width:none}
+.bande-captures::-webkit-scrollbar{display:none}
+.bande-captures button{flex:0 0 auto;width:76px;height:76px;border-radius:10px;overflow:hidden;
+  border:1px solid var(--trait);background:var(--ardoise-h);display:grid;place-items:center}
+.bande-captures button[aria-pressed="true"]{border-color:var(--safran);box-shadow:0 0 0 2px var(--safran)}
+.bande-captures img{width:100%;height:100%;object-fit:cover}
 .titre-recette{font-family:var(--serif);font-size:clamp(24px,6.4vw,34px);font-weight:800;line-height:1.08;
   letter-spacing:-.02em;margin:18px 0 8px}
 .chapeau{color:var(--encre-douce);font-size:15px;margin:0 0 16px;max-width:62ch}
@@ -262,7 +268,7 @@ const VERSION = 'carnet-v1';
 const $ = (s, r) => (r || document).querySelector(s);
 const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-const norm = s => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[’']/g, "'").trim();
+const norm = s => (s || '').toLowerCase().replace(/œ/g, 'oe').replace(/æ/g, 'ae').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[’']/g, "'").trim();
 const esc = s => (s == null ? '' : String(s)).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const arrondi = (n, d) => { const f = Math.pow(10, d || 0); return Math.round(n * f) / f; };
 
@@ -353,9 +359,9 @@ function neuve(base) {
     etapes: [],                // {texte, minuteur}
     etiquettes: [],            // moment, type de plat, régime, matériel…
     proteine: '', cout: 0, difficulte: 0,
-    nutrition: null,
+    nutrition: null, portionsDeduites: false,
     source: { plateforme: '', url: '', auteur: '', texte: '' },
-    media: null, mediaPerso: null,
+    media: null, mediaPerso: null, captures: [],
     teste: false, note: 0, notes: '', cuisineLe: []
   }, base || {});
 }
@@ -507,6 +513,12 @@ chocolat au lait;chocolat|540,7,31,19,55,52,3,0.2|0|S
 pepites de chocolat|500,5,25,15,60,55,4,0.1|0|S
 cacao;cacao en poudre|350,20,11,6,10,1,30,0|0|S
 speculoos;biscuit;biscuits|480,5,20,10,70,35,2,0.8|6|S
+compote;compote de pommes;compote ssa;puree de pommes|50,0.4,0.1,0,11,10,1.2,0|100|S
+proteine en poudre;proteines en poudre;whey;poudre proteinee|380,75,6,2,8,2,1,0.5|30|S
+son d avoine|350,17,8,1.5,50,1,15,0|0|P
+galette de riz|385,8,3,0.5,81,0.6,2,0.5|9|P
+pain de mie|280,8,4,1,48,4,3,1.1|30|P
+edulcorant;sirop sans sucre;sirop 0|5,0,0,0,1,0,0,0|0|S
 moutarde|150,7,10,0.6,5,3,3,5|0|A
 mayonnaise|700,1,76,6,2,2,0,1.2|0|A
 ketchup|110,1.2,0.2,0,24,21,1,2|0|A
@@ -556,7 +568,8 @@ const UNITES = [
   [/^(pincees?)$/, 1], [/^(gousses?)$/, 5], [/^(verres?)$/, 200], [/^(tasses?|cup|cups)$/, 240],
   [/^(bols?)$/, 300], [/^(bottes?)$/, 80], [/^(branches?|brins?)$/, 8], [/^(feuilles?)$/, 3],
   [/^(filets?|traits?)$/, 5], [/^(noix)$/, 15], [/^(sachets?)$/, 10], [/^(boites?|conserves?)$/, 400],
-  [/^(tranches?)$/, 25], [/^(oz)$/, 28], [/^(lb)$/, 454]
+  [/^(tranches?)$/, 25], [/^(carres?)$/, 5], [/^(cuilleres?|cuillerees?)$/, 12],
+  [/^(oz)$/, 28], [/^(lb)$/, 454]
 ];
 const MOT_NOMBRE = { un: 1, une: 1, deux: 2, trois: 3, quatre: 4, cinq: 5, six: 6, sept: 7, huit: 8, neuf: 9, dix: 10, douze: 12, demi: .5, demie: .5, quelques: 3 };
 
@@ -601,7 +614,6 @@ function enGrammes(ing) {
     if (u) return (ing.qte || 1) * u[1];
   }
   if (ing.qte != null && a && a.unite) return ing.qte * a.unite;
-  if (ing.qte != null && ing.qte <= 12) return ing.qte * 100;
   return null;
 }
 
@@ -672,6 +684,56 @@ function deduire(r) {
 }
 
 /* ---------------- parseur de légende ---------------- */
+/* Une capture d'écran ramène l'interface du réseau avec la légende :
+   heure, compteurs de mentions j'aime, boutons, date, pseudo du compte
+   suivant. Tout cela doit disparaître avant l'analyse. */
+const BRUIT = [
+  /^\d{1,2}\s*[:h]\s*\d{2}$/,
+  /^[\d\s.,]+(k|m|mio|mille)?$/i,
+  /^(all posts|posts?|reels?|explorer|accueil|suivre|suivi|abonn\w*|s'abonner|follow(ing|ers)?|voir la traduction|afficher la traduction|voir (plus|moins)|plus|moins|more|less|j'aime|like[sd]?|commentaires?|comments?|partager|share|enregistrer|saved?|envoyer|son original|original audio|audio|sponsoris\w*|publicit\w*|r[ée]pondre|reply)$/i,
+  /^\d{1,2}\s+(janv|f[ée]vr|mars|avril|mai|juin|juil|ao[ûu]t|sept|oct|nov|d[ée]c)\w*\.?(\s+\d{4})?$/i,
+  /^il y a .{1,24}$/i,
+  /^\d+\s*(j|h|min|sem|semaines?|jours?|heures?|mois|ans?)$/i,
+  /^[^\p{L}]*$/u
+];
+
+function nettoyerLignes(lignes) {
+  return lignes.filter(l => {
+    const t = l.trim();
+    if (!t) return false;
+    return !BRUIT.some(re => re.test(t));
+  });
+}
+
+/* Les hashtags ferment la légende : ce qui suit appartient à l'application. */
+function couperApresHashtags(lignes) {
+  for (let i = 3; i < lignes.length; i++) {
+    const t = lignes[i].replace(/#[\p{L}\d_]+/gu, '').replace(/\b(moins|plus|more|less)\b/gi, '').trim();
+    if (!t && /#/.test(lignes[i])) return lignes.slice(0, i);
+  }
+  return lignes;
+}
+
+/* « man_diet.coach LA pépite en déficit calorique » : pseudo puis titre. */
+function separerPseudo(ligne) {
+  const m = ligne.match(/^([a-z0-9](?:[a-z0-9._]{2,28}))\s+(\p{L}.{4,})$/u);
+  if (!m) return null;
+  const pseudo = m[1];
+  if (!/[._]/.test(pseudo) && !/^[a-z0-9]+$/.test(pseudo)) return null;
+  if (trouverAliment(pseudo)) return null;
+  return { auteur: '@' + pseudo, titre: m[2].trim() };
+}
+
+function ressembleIngredient(l) {
+  if (l.length > 80 || /[.!?]\s+\p{Lu}/u.test(l)) return false;
+  const q = litQuantite(l);
+  const a = trouverAliment(q.nom || l);
+  if (q.qte != null && q.unite) return true;
+  if (q.qte != null && a) return true;
+  if (q.qte == null && a && l.length < 34 && !VERBES.test(l)) return true;
+  return false;
+}
+
 const RE_INGR = /^\s*[^a-z0-9]{0,4}\s*(ingr[ée]dients?|il (te|vous) faut|il faut|ingredients|liste de courses|pour la (p[âa]te|garniture|sauce|cr[èe]me|marinade)|garniture|marinade|sauce)\s*(\([^)]*\))?\s*[:：]?\s*$/i;
 const RE_ETAPE = /^\s*[^a-z0-9]{0,4}\s*(pr[ée]paration|[ée]tapes?|recette|instructions?|method|steps|r[ée]alisation|comment faire|on y va)\s*[:：]?\s*$/i;
 const RE_QTE = /^\s*[^a-zA-Z]{0,4}\s*((\d+[.,]?\d*)|½|¼|¾|⅓|⅔|un |une |deux |trois |quatre |cinq |six |quelques )/;
@@ -679,16 +741,18 @@ const VERBES = /^(mélange|melange|ajoute|verse|fais|faites|mettre|mets|met|cuir
 
 function parseLegende(texte, source) {
   const r = neuve({ source: Object.assign({ plateforme: '', url: '', auteur: '', texte: texte }, source || {}) });
-  const lignes = texte.replace(/\r/g, '').split('\n').map(l => l.trim());
-  const hashtags = [];
+  const brutes = texte.replace(/\r/g, '').split('\n').map(l => l.trim());
+  const hashtags = (texte.match(/#[\p{L}\d_]+/gu) || []).slice(0, 8);
+  const lignes = couperApresHashtags(nettoyerLignes(brutes));
   const utiles = [];
   for (let l of lignes) {
-    const tags = l.match(/#[\p{L}\d_]+/gu);
-    if (tags) { tags.forEach(t => hashtags.push(t)); l = l.replace(/#[\p{L}\d_]+/gu, '').trim(); }
+    l = l.replace(/#[\p{L}\d_]+/gu, '').trim();
     const au = l.match(/@([\w.]+)/);
     if (au) { if (!r.source.auteur) r.source.auteur = '@' + au[1]; l = l.replace(/@[\w.]+/g, '').trim(); }
     if (l.replace(/[^\p{L}\d]/gu, '').length > 1) utiles.push(l);
   }
+  const tete = utiles.length ? separerPseudo(utiles[0]) : null;
+  if (tete) { if (!r.source.auteur) r.source.auteur = tete.auteur; utiles[0] = tete.titre; }
   let iIngr = -1, iEtape = -1;
   utiles.forEach((l, i) => {
     if (iIngr < 0 && RE_INGR.test(l)) iIngr = i;
@@ -703,7 +767,7 @@ function parseLegende(texte, source) {
     if (iEtape > iIngr) blocEtapes = utiles.slice(iEtape + 1);
   } else {
     utiles.forEach((l, i) => {
-      if (RE_QTE.test(l) && l.length < 70 && !/^\s*\d+\s*[.)]\s/.test(l)) blocIngr.push(l);
+      if (!/^\s*\d+\s*[.)]\s/.test(l) && ressembleIngredient(l)) blocIngr.push(l);
       else if (l.length > 28 && VERBES.test(l)) blocEtapes.push(l);
       else if (blocIngr.length === 0 && blocEtapes.length === 0) entete.push(l);
       else if (blocEtapes.length) blocEtapes.push(l);
@@ -718,6 +782,7 @@ function parseLegende(texte, source) {
 
   const mp = texte.match(/pour\s+(\d+)\s*(personnes?|pers|parts?|portions?)/i);
   if (mp) r.portions = Math.min(24, Number(mp[1]));
+  else r.portionsDeduites = true;
   const mprep = texte.match(/pr[ée]paration\s*[:：]?\s*(\d+)\s*(min|mn)/i);
   if (mprep) r.tempsPrep = Number(mprep[1]);
   const mcuis = texte.match(/cuisson\s*[:：]?\s*(\d+)\s*(min|mn)/i);
@@ -742,6 +807,11 @@ function parseLegende(texte, source) {
       }
       return { texte: texteEtape, minuteur };
     });
+
+  if (r.portionsDeduites) {
+    const poids = r.ingredients.reduce((a, i) => a + (enGrammes(i) || 0), 0);
+    r.portions = poids < 450 ? 1 : poids < 950 ? 2 : poids < 1700 ? 4 : 6;
+  }
 
   if (!r.tempsCuisson && r.etapes.length) {
     const s = r.etapes.reduce((a, e) => a + (e.minuteur || 0), 0);
@@ -1086,7 +1156,7 @@ async function dessinerRecette(r) {
       <tr><td>fibres</td><td>${n.fibres} g</td></tr>
       <tr><td>sel</td><td>${n.sel} g</td></tr>
     </table>
-    <p class="fiabilite">Par portion, pour ${r.portions} portion${r.portions > 1 ? 's' : ''}.
+    <p class="fiabilite">Par portion, pour ${r.portions} portion${r.portions > 1 ? 's' : ''}${r.portionsDeduites ? ' (nombre estimé, à corriger dans « Modifier »)' : ''}.
       ${n.couverture >= 85 ? 'Estimation fiable' : n.couverture >= 50 ? 'Estimation partielle' : 'Estimation incomplète'}
       — ${n.connus} ingrédient${n.connus > 1 ? 's' : ''} sur ${n.total} reconnu${n.connus > 1 ? 's' : ''}.</p>
 
@@ -1127,9 +1197,17 @@ async function dessinerRecette(r) {
       <button class="bouton fantome" data-courses>Ajouter aux courses</button>
     </div>`}
 
+    ${(r.captures && r.captures.length) ? `
+    <h2 class="rubrique">Images d’origine</h2>
+    <p class="aide">Elles ont servi à lire la recette. Touche-en une pour en faire l’illustration de la fiche.</p>
+    <div class="bande-captures">
+      ${r.captures.map(c => `<button data-hero="${esc(c)}" aria-pressed="${r.media === c}" data-media="${esc(c)}" aria-label="Utiliser comme illustration"></button>`).join('')}
+    </div>` : ''}
+
     ${r.source.url ? `<p class="source">Source : <a href="${esc(r.source.url)}" target="_blank" rel="noopener">${esc(r.source.url.replace(/^https?:\/\//, '').slice(0, 70))}</a>${r.source.auteur ? ' — ' + esc(r.source.auteur) : ''}</p>` : ''}
     <div class="rangee-actions"><button class="bouton danger" data-supprimer>Supprimer cette recette</button></div>
   </div>`;
+  peuplerVignettes(p);
 }
 
 function blocCompletion(r) {
@@ -1152,6 +1230,13 @@ async function gererClicRecette(e, r) {
   if (pl) { portionsAffichees = Math.max(1, Math.min(30, portionsAffichees + Number(pl.dataset.portion))); dessinerRecette(r); return; }
   const et = e.target.closest('[data-note]');
   if (et) { r.note = r.note === Number(et.dataset.note) ? 0 : Number(et.dataset.note); await sauver(r); dessinerRecette(r); return; }
+  const h = e.target.closest('[data-hero]');
+  if (h) {
+    r.media = (r.media === h.dataset.hero) ? null : h.dataset.hero;
+    await sauver(r); await dessinerRecette(r); rafraichir();
+    toast(r.media ? 'Illustration choisie' : 'Illustration retirée');
+    return;
+  }
   if (e.target.closest('[data-cuisine]')) { modeCuisine(r); return; }
   if (e.target.closest('[data-editer]')) { editer(r); return; }
   if (e.target.closest('[data-courses]')) {
@@ -1161,7 +1246,7 @@ async function gererClicRecette(e, r) {
   if (e.target.closest('[data-supprimer]')) {
     if (!confirm('Supprimer « ' + (r.titre || 'cette fiche') + ' » ? C’est définitif.')) return;
     await DB.del(r.id);
-    if (r.media) DB.delMedia(r.media);
+    for (const c of [r.media, r.mediaPerso].concat(r.captures || [])) if (c) DB.delMedia(c);
     App.recettes = App.recettes.filter(x => x.id !== r.id);
     p.hidden = true; rafraichir(); toast('Recette supprimée'); return;
   }
@@ -1196,8 +1281,6 @@ async function gererChangementRecette(e, r) {
     const fs = Array.from(e.target.files);
     if (!fs.length) return;
     r._captures = fs;
-    const photo = fs.find(f => !estVideo(f));
-    if (!r.media && photo) { const cle = uid(); await DB.media(cle, photo); r.media = cle; await sauver(r); }
     const etat = $('#etat-media');
     if (etat) etat.textContent = fs.map(f => (estVideo(f) ? '🎬 ' : '🖼 ') + (f.name || 'fichier')).join(', ') + ' — appuie sur « Créer la fiche ».';
     toast('Prêt à analyser');
@@ -1510,6 +1593,16 @@ async function texteDepuisImages(images, progres) {
 /* ============================================================
    Analyse : texte collé, captures d'écran, vidéo
    ============================================================ */
+async function rangerCaptures(r, images) {
+  r.captures = r.captures || [];
+  for (const img of images.slice(0, 4)) {
+    if (r.captures.length >= 6) break;
+    const cle = uid();
+    await DB.media(cle, img);
+    r.captures.push(cle);
+  }
+}
+
 async function analyser(r) {
   const p = $('#panneau-recette');
   const champ = $('[data-legende]', p);
@@ -1545,7 +1638,7 @@ async function analyser(r) {
             (texte ? '\n\nLégende de la publication :\n' + texte : '')
         });
         const j = await sample.json([{ role: 'user', content: contenu }], { modelTier: 'default' });
-        if (!r.media && images[0]) { const cle = uid(); await DB.media(cle, images[0]); r.media = cle; }
+        await rangerCaptures(r, images);
         await appliquerJSON(r, j); fait = true;
       }
     }
@@ -1562,7 +1655,7 @@ async function analyser(r) {
       const images = await imagesAAnalyser(fichiers, 8, avance);
       if (images.length) {
         const lu = await texteDepuisImages(images, avance);
-        if (!r.media && images[0]) { const cle = uid(); await DB.media(cle, images[0]); r.media = cle; }
+        await rangerCaptures(r, images);
         if (lu && lu.length > 20) {
           const complet = [texte, lu].filter(Boolean).join('\n');
           if (champ) champ.value = complet;
@@ -1639,8 +1732,6 @@ function ouvrirAjout() {
         source: { url, plateforme: plateforme(url), auteur: auteurDepuisUrl(url), texte },
         titre: 'Lecture en cours…'
       });
-      const photo = fichiers.find(f => !estVideo(f));
-      if (photo) { const cle = uid(); await DB.media(cle, photo); r.media = cle; }
       r._captures = fichiers;
       await sauver(r);
       p.hidden = true;
