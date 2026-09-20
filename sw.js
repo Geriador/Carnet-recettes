@@ -1,5 +1,5 @@
 /* Le Carnet — service worker : hors ligne + réception des partages Android */
-const CACHE = 'carnet-v2';
+const CACHE = 'carnet-v3';
 const COQUILLE = ['./', './index.html', './manifest.webmanifest'];
 
 self.addEventListener('install', e => {
@@ -16,7 +16,7 @@ self.addEventListener('fetch', e => {
   const u = new URL(e.request.url);
 
   /* feuille de partage d'Android : Instagram, Facebook… envoient ici */
-  if (e.request.method === 'POST' && u.pathname.endsWith('/partage')) {
+  if (e.request.method === 'POST' && u.origin === self.location.origin) {
     e.respondWith((async () => {
       try {
         const f = await e.request.formData();

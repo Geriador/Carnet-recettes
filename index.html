@@ -803,6 +803,17 @@ function typeLigne(l) {
   return '?';
 }
 
+/* Un titre s'arrête au premier émoji suivi d'une phrase, sinon au mot
+   qui dépasse soixante-dix caractères. */
+function couperTitre(l) {
+  let t = String(l || '').replace(/^[^\p{L}\d]+/u, '');
+  const m = t.match(/^(.{12,80}?)\s*\p{Extended_Pictographic}[\uFE0F\u200d]*\s+(?=\p{L})/u);
+  if (m) t = m[1];
+  t = t.replace(/[^\p{L}\d)\]!?»"']+$/u, '').replace(/[:：]\s*$/, '').trim();
+  if (t.length > 70) t = t.slice(0, 68).replace(/\s+\S*$/, '') + '…';
+  return t;
+}
+
 function ressembleIngredient(l) {
   if (l.length > 80 || /[.!?]\s+\p{Lu}/u.test(l)) return false;
   const q = litQuantite(l);
@@ -862,15 +873,18 @@ function parseLegende(texte, source) {
   }
 
   const bonTitre = l => {
-    if (!l || l.length < 3 || l.length > 90) return false;
+    if (!l || l.length < 3) return false;
     if (/https?:\/\/|www\./i.test(l)) return false;
     const lettres = (l.match(/\p{L}/gu) || []).length;
     return lettres >= 6 && lettres / l.length > 0.55;
   };
   const ligneTitre = entete.find(bonTitre) || utiles.find(bonTitre) || 'Recette sans titre';
-  r.titre = ligneTitre.replace(/^[^\p{L}\d]+/u, '').replace(/[^\p{L}\d)\]!?»"']+$/u, '').replace(/[:：]\s*$/, '').trim();
-  if (r.titre.length > 70) r.titre = r.titre.slice(0, 68) + '…';
-  const suite = entete.filter(l => l !== ligneTitre).join(' ');
+  r.titre = couperTitre(ligneTitre) || 'Recette sans titre';
+  let reste = '';
+  const noyau = r.titre.replace(/…$/, '');
+  const pos = ligneTitre.indexOf(noyau);
+  if (pos >= 0 && noyau.length > 3) reste = ligneTitre.slice(pos + noyau.length).trim();
+  const suite = [reste].concat(entete.filter(l => l !== ligneTitre)).filter(Boolean).join(' ');
   r.chapeau = suite.length > 4 ? suite.slice(0, 320) : '';
 
   const mp = texte.match(/pour\s+(\d+)\s*(personnes?|pers|parts?|portions?)/i);
@@ -1777,7 +1791,8 @@ async function analyser(r) {
   avance('Lecture…');
 
   /* Voie 0 : tout ce qu'on a, c'est un lien. On tente de lire la publication. */
-  let texte = texteSaisi;
+  /* Un champ qui ne contient que le lien partagé ne vaut pas légende. */
+  let texte = /^https?:\/\/\S+$/.test(texteSaisi) ? '' : texteSaisi;
   if (!texte && !fichiers.length && r.source.url) {
     const lu = await completerDepuisLien(r, avance).catch(() => '');
     if (lu) { texte = lu; if (champ) champ.value = lu; }
@@ -2043,6 +2058,36 @@ async function viaRelais(cible, progres) {
   return null;
 }
 
+/* Le relais r.jina.ai renvoie la page convertie en Markdown, avec son
+   propre en-tête et toute la charpente d'Instagram. On déblaie. */
+const CHROME_RESEAU = new RegExp([
+  'view profile', 'view more on instagram', 'view all \\d+ comments?',
+  'add a comment', 'more posts from [^\\n]*', 'instagram post shared by [^\\n]*',
+  '(photo|reel|video) shared by [^\\n]*', 'log ?in', 'sign ?up', 'see translation',
+  'voir la traduction'
+].join('|'), 'gi');
+
+/* « laurenbouffe · 171K followers » : en-tête de profil, pas une recette. */
+const ENTETE_PROFIL = /^[a-z0-9._]{3,30}\s*[·•|,\-—]\s*\d/i;
+/* Reste du pseudo seul sur sa ligne, une fois les compteurs retirés. */
+const PSEUDO_SEUL = /^(?:[a-z0-9][a-z0-9._]{2,29}\s*[·•|,\-—:]+\s*|[a-z0-9]+[._][a-z0-9._]+)$/;
+
+function nettoyerMarkdown(t) {
+  let s = String(t || '');
+  s = s.replace(/^[ \t]*(Title|URL Source|Published Time|Warning|Markdown Content|Image \d+)[ \t]*:.*$/gim, '');
+  s = s.replace(/!\[[^\]]*\]\([^)]*\)/g, ' ');
+  s = s.replace(/!\[[^\]]*\]\(/g, ' ');
+  s = s.replace(/\[([^\]]*)\]\([^)]*\)/g, '$1');
+  s = s.replace(/\[([^\]]*)\]\(/g, '$1 ');
+  s = s.replace(/\[([^\]]*)\]/g, '$1');
+  s = s.replace(CHROME_RESEAU, ' ');
+  s = s.replace(/\b\d[\d\u202f .,]*\s*[KkMm]?\s*(likes?|posts?|followers?|comments?|abonn\w*|publications?|mentions? j'aime)\b/gi, ' ');
+  s = s.replace(/\b(Like|Share|Save)\b/g, ' ');
+  return s.split('\n').map(l => l.replace(/[ \t]+/g, ' ').trim())
+    .filter(l => l.replace(/[^\p{L}\d]/gu, '').length > 1 && !ENTETE_PROFIL.test(l) && !PSEUDO_SEUL.test(l))
+    .join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
 function legendeDepuisPage(page) {
   if (!page) return '';
   let bloc = null;
@@ -2059,7 +2104,7 @@ function legendeDepuisPage(page) {
       const j = page.match(/"edge_media_to_caption":\s*\{"edges":\s*\[\{"node":\s*\{"text":\s*"((?:[^"\\]|\\.)*)"/);
       if (j) bloc = j[1].replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\u([0-9a-f]{4})/gi, (x, c) => String.fromCharCode(parseInt(c, 16)));
     }
-  } else bloc = page;
+  } else bloc = nettoyerMarkdown(page);
   if (!bloc) return '';
 
   let t = String(bloc)
@@ -2069,6 +2114,7 @@ function legendeDepuisPage(page) {
   t = decoderEntites(t).replace(/\u00a0/g, ' ');
   /* og:description ressemble à : « 1 691 likes, 38 comments - laurenbouffe on … : "…" » */
   t = t.replace(/^[\s\d.,\u202f]*(likes?|j'aime|mentions)[^:]{0,140}:\s*/i, '').replace(/^["“]|["”]\s*$/g, '');
+  t = nettoyerMarkdown(t);
   return t.split('\n').map(l => l.replace(/[ \t]+/g, ' ').trim()).join('\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 
@@ -2134,6 +2180,9 @@ function ouvrirAjout() {
     <textarea class="zone" id="a-texte" placeholder="🍝 Pâtes crémeuses au citron&#10;&#10;Ingrédients :&#10;- 300 g de pâtes&#10;- 20 cl de crème&#10;…"></textarea>
     <label class="champ" style="margin-top:14px"><span>Lien de la publication — seul, il suffit parfois</span>
       <input id="a-url" inputmode="url" placeholder="https://www.instagram.com/reel/…"></label>
+    <div class="rangee-actions" style="margin:-4px 0 14px">
+      <button class="bouton fantome" id="a-coller">📋 Coller le lien copié</button>
+    </div>
     <label class="choix-fichier">🖼 Captures d’écran, photo ou vidéo de la recette
       <input type="file" accept="image/*,video/*" multiple id="a-image" hidden></label>
     <p class="aide" id="a-etat-media" style="margin:0 0 14px"></p>
@@ -2174,6 +2223,16 @@ function ouvrirAjout() {
       const r = neuve({ titre: 'Nouvelle recette', etat: 'prete' });
       await sauver(r);
       p.hidden = true; rafraichir(); await ouvrirRecette(r.id); editer(r);
+      return;
+    }
+    if (e.target.id === 'a-coller') {
+      try {
+        const t = (await navigator.clipboard.readText() || '').trim();
+        const m = t.match(/https?:\/\/\S+/);
+        if (m) { $('#a-url').value = m[0]; toast('Lien collé'); }
+        else if (t) { $('#a-texte').value = t; toast('Texte collé'); }
+        else toast('Presse-papiers vide');
+      } catch (err) { toast('Appui long dans le champ pour coller'); }
       return;
     }
     if (e.target.id === 'a-export') { await exporter(); return; }
@@ -2259,14 +2318,21 @@ async function traiterPartage() {
   else if (p.get('url') || p.get('text') || p.get('title')) {
     charge = { titre: p.get('title') || '', texte: p.get('text') || '', url: p.get('url') || '', fichiers: [] };
   }
-  if (!charge) return;
+  if (!charge) {
+    if (p.get('partage')) toast('Partage reçu, mais aucun contenu transmis. Utilise « Ajouter », puis « Coller le lien ».', 5000);
+    return;
+  }
   history.replaceState({}, '', location.pathname);
+  if (!(charge.texte || '').trim() && !charge.url && !(charge.fichiers || []).length) {
+    toast('Le partage est arrivé vide. Essaie « Copier le lien » dans Instagram, puis « Coller le lien » ici.', 5000);
+    return;
+  }
 
   const texte = (charge.texte || '').trim();
   const mu = (charge.url || texte).match(/https?:\/\/\S+/);
   const url = charge.url || (mu ? mu[0] : '');
-  const src = { url, plateforme: plateforme(url), auteur: auteurDepuisUrl(url), texte };
   const corps = texte.replace(/https?:\/\/\S+/g, '').trim();
+  const src = { url, plateforme: plateforme(url), auteur: auteurDepuisUrl(url), texte: corps };
 
   let r;
   if (corps.length > 110 && /\n/.test(corps)) { r = parseLegende(corps, src); }

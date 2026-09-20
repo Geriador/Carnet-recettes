@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Le Carnet</title>
+<script>
+/* Filet de sécurité : si le partage atterrit sur une adresse inconnue,
+   on renvoie vers l'application en conservant ce qui a été transmis. */
+(function () {
+  var base = location.pathname.replace(/\/[^\/]*$/, '/');
+  location.replace(base + (location.search || '') + (location.hash || ''));
+})();
+</script>
+</head><body style="background:#181C19"></body></html>
