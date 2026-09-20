@@ -1,5 +1,5 @@
 /* Le Carnet — service worker : hors ligne + réception des partages Android */
-const CACHE = 'carnet-v1';
+const CACHE = 'carnet-v2';
 const COQUILLE = ['./', './index.html', './manifest.webmanifest'];
 
 self.addEventListener('install', e => {
@@ -39,9 +39,27 @@ self.addEventListener('fetch', e => {
 
   if (e.request.method !== 'GET') return;
 
-  e.respondWith(caches.match(e.request).then(rep => rep || fetch(e.request).then(reseau => {
-    const memorisable = u.origin === self.location.origin || /fonts\.(googleapis|gstatic)\.com$/.test(u.hostname);
-    if (memorisable) { const copie = reseau.clone(); caches.open(CACHE).then(c => c.put(e.request, copie)); }
-    return reseau;
-  }).catch(() => caches.match('./index.html'))));
+  const police = /fonts\.(googleapis|gstatic)\.com$/.test(u.hostname);
+
+  /* Polices et fichiers distants : le cache d'abord, ils ne bougent pas. */
+  if (police) {
+    e.respondWith(caches.match(e.request).then(rep => rep || fetch(e.request).then(reseau => {
+      const copie = reseau.clone();
+      caches.open(CACHE).then(c => c.put(e.request, copie));
+      return reseau;
+    })));
+    return;
+  }
+
+  /* L'application elle-même : le réseau d'abord, le cache en secours.
+     Sans cela, une version corrigée déposée sur GitHub ne t'atteindrait jamais. */
+  if (u.origin === self.location.origin) {
+    e.respondWith(fetch(e.request).then(reseau => {
+      if (reseau && reseau.ok) {
+        const copie = reseau.clone();
+        caches.open(CACHE).then(c => c.put(e.request, copie));
+      }
+      return reseau;
+    }).catch(() => caches.match(e.request).then(rep => rep || caches.match('./index.html'))));
+  }
 });

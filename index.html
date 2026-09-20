@@ -102,7 +102,7 @@ nav.onglets button[aria-selected="true"]{color:var(--encre);border-bottom-color:
   padding:env(safe-area-inset-top,0px) 0 calc(30px + env(safe-area-inset-bottom,0px));
   animation:monte .18s ease-out}
 @keyframes monte{from{transform:translateY(14px);opacity:.4}to{transform:none;opacity:1}}
-.panneau[hidden]{display:none}
+.panneau[hidden],#cuisine[hidden],#panneau-ajout[hidden],#panneau-recette[hidden]{display:none!important}
 .barre-panneau{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:10px;
   padding:12px 16px;background:rgba(24,28,25,.93);backdrop-filter:blur(8px);border-bottom:1px solid var(--trait)}
 .barre-panneau h2{font-family:var(--serif);font-size:17px;font-weight:600;margin:0;flex:1;
@@ -195,7 +195,7 @@ ol.etapes p{margin:0;flex:1;max-width:62ch}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(92px + env(safe-area-inset-bottom,0px));
   background:var(--ardoise-h);border:1px solid var(--trait);border-radius:999px;padding:11px 20px;font-size:14.5px;
   z-index:90;box-shadow:0 8px 24px rgba(0,0,0,.5);max-width:90vw;text-align:center}
-.toast[hidden]{display:none}
+.toast[hidden],#toast[hidden]{display:none!important}
 .tourne{display:inline-block;width:14px;height:14px;border:2px solid var(--trait);border-top-color:var(--safran);
   border-radius:999px;animation:t .7s linear infinite;vertical-align:-2px}
 @keyframes t{to{transform:rotate(360deg)}}
