@@ -103,6 +103,8 @@ nav.onglets button[aria-selected="true"]{color:var(--encre);border-bottom-color:
   animation:monte .18s ease-out}
 @keyframes monte{from{transform:translateY(14px);opacity:.4}to{transform:none;opacity:1}}
 .panneau[hidden],#cuisine[hidden],#panneau-ajout[hidden],#panneau-recette[hidden]{display:none!important}
+#panneau-ajout{z-index:70}
+#cuisine{z-index:80}
 .barre-panneau{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:10px;
   padding:12px 16px;background:rgba(24,28,25,.93);backdrop-filter:blur(8px);border-bottom:1px solid var(--trait)}
 .barre-panneau h2{font-family:var(--serif);font-size:17px;font-weight:600;margin:0;flex:1;
@@ -1121,6 +1123,7 @@ async function dessinerRecette(r) {
 
     <div class="rangee-actions">
       <button class="bouton" data-cuisine>Mode cuisine</button>
+      <button class="bouton fantome" data-editer>Modifier</button>
       <button class="bouton fantome" data-courses>Ajouter aux courses</button>
     </div>`}
 
@@ -1132,8 +1135,9 @@ async function dessinerRecette(r) {
 function blocCompletion(r) {
   return `<p class="aide">Cette publication attend sa recette. Colle la légende (ou le premier commentaire) ci-dessous, ou dépose une capture d’écran.</p>
     <textarea class="zone" data-legende placeholder="Colle ici la légende de la publication…">${esc(r.source.texte || '')}</textarea>
-    <label class="choix-fichier">🖼 Déposer une capture d’écran ou une photo
-      <input type="file" accept="image/*" multiple data-captures hidden></label>
+    <label class="choix-fichier">🖼 Déposer des captures d’écran, une photo ou la vidéo
+      <input type="file" accept="image/*,video/*" multiple data-captures hidden></label>
+    <p class="aide" id="etat-media" style="margin:0 0 14px"></p>
     <div class="rangee-actions">
       <button class="bouton" data-analyser>Créer la fiche</button>
       <button class="bouton fantome" data-prompt>Copier le texte pour Claude</button>
@@ -1192,8 +1196,11 @@ async function gererChangementRecette(e, r) {
     const fs = Array.from(e.target.files);
     if (!fs.length) return;
     r._captures = fs;
-    if (!r.media) { const cle = uid(); await DB.media(cle, fs[0]); r.media = cle; await sauver(r); }
-    toast(fs.length + ' image' + (fs.length > 1 ? 's' : '') + ' prête' + (fs.length > 1 ? 's' : '') + ' à analyser');
+    const photo = fs.find(f => !estVideo(f));
+    if (!r.media && photo) { const cle = uid(); await DB.media(cle, photo); r.media = cle; await sauver(r); }
+    const etat = $('#etat-media');
+    if (etat) etat.textContent = fs.map(f => (estVideo(f) ? '🎬 ' : '🖼 ') + (f.name || 'fichier')).join(', ') + ' — appuie sur « Créer la fiche ».';
+    toast('Prêt à analyser');
   }
 }
 
@@ -1223,52 +1230,6 @@ async function versBase64(f) {
     r.onerror = () => rej(r.error);
     r.readAsDataURL(f);
   });
-}
-
-async function analyser(r) {
-  const p = $('#panneau-recette');
-  const texte = ($('[data-legende]', p) || {}).value || r.source.texte || '';
-  const captures = r._captures || [];
-  if (!texte.trim() && !captures.length) { toast('Colle la légende ou dépose une capture d’écran.'); return; }
-  const bouton = $('[data-analyser]', p);
-  if (bouton) { bouton.disabled = true; bouton.innerHTML = '<span class="tourne"></span> Lecture…'; }
-
-  const sample = await claudeDispo();
-  let ok = false;
-  if (sample) {
-    try {
-      let contenu = [{ type: 'text', text: PROMPT_EXTRACTION + '\n\n---\n' + texte }];
-      const limites = await sample.limits().catch(() => ({}));
-      if (limites && limites.images && captures.length) {
-        for (const f of captures.slice(0, 3)) {
-          contenu.unshift({ type: 'image', source: { type: 'base64', media_type: f.type || 'image/jpeg', data: await versBase64(f) } });
-        }
-      }
-      const j = await sample.json([{ role: 'user', content: contenu }], { modelTier: 'default' });
-      await appliquerJSON(r, j); ok = true;
-    } catch (e) { ok = false; }
-  }
-  if (!ok) {
-    if (!texte.trim()) {
-      toast('Pas de lecture automatique des images ici. Colle la légende, ou passe par « Copier le texte pour Claude ».');
-      if (bouton) { bouton.disabled = false; bouton.textContent = 'Créer la fiche'; }
-      return;
-    }
-    const lu = parseLegende(texte, r.source);
-    Object.assign(r, {
-      titre: lu.titre, chapeau: lu.chapeau, portions: lu.portions, tempsPrep: lu.tempsPrep,
-      tempsCuisson: lu.tempsCuisson, ingredients: lu.ingredients, etapes: lu.etapes,
-      etiquettes: lu.etiquettes, proteine: lu.proteine, nutrition: lu.nutrition, etat: lu.etat
-    });
-    r.source.texte = texte;
-    if (r.etat === 'attente') { r.etat = 'prete'; }
-    await sauver(r);
-  }
-  portionsAffichees = r.portions;
-  delete r._captures;
-  await dessinerRecette(r);
-  rafraichir();
-  toast(ok ? 'Fiche créée par Claude' : 'Fiche créée. Vérifie et corrige avec ✎.');
 }
 
 async function appliquerJSON(r, j) {
@@ -1436,6 +1397,210 @@ $('#cuisine').addEventListener('click', async e => {
   }
 });
 /* ============================================================
+   Lecture des images et des vidéos
+   - avec Claude (version artefact) : analyse directe des images
+   - sans Claude (version installée) : reconnaissance de texte
+     hors ligne par Tesseract, téléchargé une seule fois
+   ============================================================ */
+
+function estVideo(f) {
+  return /^video\//.test(f.type || '') || /\.(mp4|mov|webm|m4v|avi)$/i.test(f.name || '');
+}
+
+function chargerScript(src) {
+  return new Promise((res, rej) => {
+    if (document.querySelector('script[data-src="' + src + '"]')) return res();
+    const s = document.createElement('script');
+    s.src = src; s.dataset.src = src;
+    s.onload = () => res(); s.onerror = () => rej(new Error('téléchargement impossible'));
+    document.head.appendChild(s);
+  });
+}
+
+const Lecture = { moteur: null };
+
+async function moteurOCR(progres) {
+  if (Lecture.moteur) return Lecture.moteur;
+  progres('Téléchargement du lecteur de texte (une seule fois)…');
+  await chargerScript('https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js');
+  if (typeof Tesseract === 'undefined') throw new Error('lecteur indisponible');
+  Lecture.moteur = await Tesseract.createWorker('fra', 1, {
+    workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/worker.min.js',
+    corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1',
+    logger: m => { if (m.status === 'recognizing text') progres('Lecture du texte… ' + Math.round((m.progress || 0) * 100) + ' %'); }
+  });
+  return Lecture.moteur;
+}
+
+/* --- images extraites d'une vidéo --- */
+async function imagesDepuisVideo(fichier, combien, progres) {
+  const url = URL.createObjectURL(fichier);
+  const v = document.createElement('video');
+  v.src = url; v.muted = true; v.playsInline = true; v.preload = 'auto';
+  try {
+    await new Promise((res, rej) => {
+      v.onloadedmetadata = res;
+      v.onerror = () => rej(new Error('vidéo illisible'));
+      setTimeout(() => rej(new Error('vidéo trop longue à ouvrir')), 15000);
+    });
+    const duree = v.duration && isFinite(v.duration) ? v.duration : 0;
+    if (!duree) throw new Error('durée inconnue');
+    const n = Math.max(3, Math.min(combien, Math.round(duree / 2)));
+    const c = document.createElement('canvas');
+    const k = Math.min(1, 1000 / Math.max(v.videoWidth || 1000, v.videoHeight || 1000));
+    c.width = Math.round((v.videoWidth || 720) * k);
+    c.height = Math.round((v.videoHeight || 1280) * k);
+    const ctx = c.getContext('2d');
+    const images = [];
+    for (let i = 0; i < n; i++) {
+      const t = duree * (i + 0.5) / n;
+      await new Promise((res, rej) => {
+        v.onseeked = res;
+        v.currentTime = Math.min(t, Math.max(0, duree - 0.05));
+        setTimeout(res, 4000);
+      });
+      ctx.drawImage(v, 0, 0, c.width, c.height);
+      const b = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.82));
+      if (b) images.push(b);
+      progres('Extraction des images… ' + (i + 1) + ' sur ' + n);
+    }
+    return images;
+  } finally { URL.revokeObjectURL(url); }
+}
+
+/* --- rassemble les images à analyser --- */
+async function imagesAAnalyser(fichiers, maxParVideo, progres) {
+  const out = [];
+  for (const f of fichiers) {
+    if (estVideo(f)) {
+      try { out.push.apply(out, await imagesDepuisVideo(f, maxParVideo, progres)); }
+      catch (e) { toast('Vidéo illisible par le navigateur. Essaie une capture d’écran.'); }
+    } else out.push(f);
+  }
+  return out;
+}
+
+/* --- fusionne le texte lu sur plusieurs images --- */
+function fusionnerLignes(blocs) {
+  const vues = new Set(); const lignes = [];
+  for (const bloc of blocs) {
+    for (let l of String(bloc || '').split('\n')) {
+      l = l.replace(/\s+/g, ' ').trim();
+      if (l.length < 3) continue;
+      if (!/[a-zà-ÿ]/i.test(l)) continue;
+      const cle = norm(l).replace(/[^a-z0-9]/g, '');
+      if (cle.length < 3 || vues.has(cle)) continue;
+      vues.add(cle); lignes.push(l);
+    }
+  }
+  return lignes.join('\n');
+}
+
+async function texteDepuisImages(images, progres) {
+  const moteur = await moteurOCR(progres);
+  const blocs = [];
+  for (let i = 0; i < images.length; i++) {
+    progres('Lecture de l’image ' + (i + 1) + ' sur ' + images.length + '…');
+    try { const { data } = await moteur.recognize(images[i]); blocs.push(data.text || ''); }
+    catch (e) { /* on continue avec les autres */ }
+  }
+  return fusionnerLignes(blocs);
+}
+
+/* ============================================================
+   Analyse : texte collé, captures d'écran, vidéo
+   ============================================================ */
+async function analyser(r) {
+  const p = $('#panneau-recette');
+  const champ = $('[data-legende]', p);
+  const texte = (champ ? champ.value : r.source.texte || '').trim();
+  const fichiers = (r._captures || []).slice(0, 4);
+  if (!texte && !fichiers.length) { toast('Colle la légende, ou dépose une capture d’écran ou la vidéo.'); return; }
+
+  const bouton = $('[data-analyser]', p);
+  const avance = m => { if (bouton) bouton.innerHTML = '<span class="tourne"></span> ' + esc(m); };
+  if (bouton) bouton.disabled = true;
+  avance('Lecture…');
+
+  let fait = false;
+  try {
+    const sample = await claudeDispo();
+
+    /* --- voie 1 : Claude regarde les images lui-même --- */
+    if (sample && fichiers.length) {
+      const limites = await Promise.resolve(sample.limits && sample.limits()).catch(() => ({}));
+      if (limites && limites.images) {
+        const images = await imagesAAnalyser(fichiers, 6, avance);
+        avance('Claude analyse…');
+        const contenu = [];
+        for (const img of images.slice(0, 6)) {
+          contenu.push({
+            type: 'image',
+            source: { type: 'base64', media_type: img.type || 'image/jpeg', data: await versBase64(img) }
+          });
+        }
+        contenu.push({
+          type: 'text', text: PROMPT_EXTRACTION +
+            '\n\nLes images ci-dessus viennent d’une publication de recette (captures d’écran ou images extraites de la vidéo). Lis le texte qui y est affiché et ce que tu vois préparer.' +
+            (texte ? '\n\nLégende de la publication :\n' + texte : '')
+        });
+        const j = await sample.json([{ role: 'user', content: contenu }], { modelTier: 'default' });
+        if (!r.media && images[0]) { const cle = uid(); await DB.media(cle, images[0]); r.media = cle; }
+        await appliquerJSON(r, j); fait = true;
+      }
+    }
+
+    /* --- voie 2 : Claude lit la légende --- */
+    if (!fait && sample && texte) {
+      avance('Claude analyse…');
+      const j = await sample.json([{ role: 'user', content: PROMPT_EXTRACTION + '\n\n---\n' + texte }], { modelTier: 'default' });
+      await appliquerJSON(r, j); fait = true;
+    }
+
+    /* --- voie 3 : reconnaissance de texte sur l'appareil --- */
+    if (!fait && fichiers.length) {
+      const images = await imagesAAnalyser(fichiers, 8, avance);
+      if (images.length) {
+        const lu = await texteDepuisImages(images, avance);
+        if (!r.media && images[0]) { const cle = uid(); await DB.media(cle, images[0]); r.media = cle; }
+        if (lu && lu.length > 20) {
+          const complet = [texte, lu].filter(Boolean).join('\n');
+          if (champ) champ.value = complet;
+          appliquerLecture(r, complet); fait = true;
+        } else if (!texte) {
+          toast('Texte illisible sur ces images. Essaie une capture plus nette, ou colle la légende.');
+        }
+      }
+    }
+
+    /* --- voie 4 : parseur local sur la légende --- */
+    if (!fait && texte) { appliquerLecture(r, texte); fait = true; }
+  } catch (e) {
+    if (texte) { appliquerLecture(r, texte); fait = true; }
+    else toast('Analyse impossible : ' + (e && e.message ? e.message : 'erreur inconnue'));
+  }
+
+  if (bouton) { bouton.disabled = false; bouton.textContent = 'Créer la fiche'; }
+  if (!fait) return;
+  delete r._captures;
+  portionsAffichees = r.portions;
+  await sauver(r);
+  await dessinerRecette(r);
+  rafraichir();
+  toast('Fiche créée. Relis-la et corrige avec « Modifier ».');
+}
+
+function appliquerLecture(r, texte) {
+  const lu = parseLegende(texte, r.source);
+  Object.assign(r, {
+    titre: lu.titre, chapeau: lu.chapeau, portions: lu.portions, tempsPrep: lu.tempsPrep,
+    tempsCuisson: lu.tempsCuisson, ingredients: lu.ingredients, etapes: lu.etapes,
+    etiquettes: lu.etiquettes, proteine: lu.proteine, nutrition: lu.nutrition
+  });
+  r.source.texte = texte;
+  r.etat = 'prete';
+}
+/* ============================================================
    Ajouter une recette
    ============================================================ */
 function ouvrirAjout() {
@@ -1447,8 +1612,9 @@ function ouvrirAjout() {
     <textarea class="zone" id="a-texte" placeholder="🍝 Pâtes crémeuses au citron&#10;&#10;Ingrédients :&#10;- 300 g de pâtes&#10;- 20 cl de crème&#10;…"></textarea>
     <label class="champ" style="margin-top:14px"><span>Lien d’origine (facultatif)</span>
       <input id="a-url" inputmode="url" placeholder="https://www.instagram.com/reel/…"></label>
-    <label class="choix-fichier">🖼 Photo ou capture d’écran (facultatif)
-      <input type="file" accept="image/*" id="a-image" hidden></label>
+    <label class="choix-fichier">🖼 Captures d’écran, photo ou vidéo de la recette
+      <input type="file" accept="image/*,video/*" multiple id="a-image" hidden></label>
+    <p class="aide" id="a-etat-media" style="margin:0 0 14px"></p>
     <div class="rangee-actions">
       <button class="bouton" id="a-creer">Créer la fiche</button>
       <button class="bouton fantome" id="a-vide">Fiche vierge à remplir</button>
@@ -1466,36 +1632,37 @@ function ouvrirAjout() {
     if (e.target.closest('[data-fermer]')) { p.hidden = true; return; }
     if (e.target.id === 'a-creer') {
       const texte = $('#a-texte').value.trim();
-      if (!texte) { toast('Colle d’abord la légende.'); return; }
-      const src = { url: $('#a-url').value.trim(), plateforme: plateforme($('#a-url').value), texte };
-      const sample = await claudeDispo();
-      let r;
-      if (sample) {
-        r = neuve({ source: Object.assign({ auteur: '' }, src) });
-        await enregistrerImage(r);
-        await sauver(r);
-        p.hidden = true;
-        await ouvrirRecette(r.id);
-        await analyser(r);
-        return;
-      }
-      r = parseLegende(texte, src);
-      r.etat = 'prete';
-      await enregistrerImage(r);
+      const fichiers = Array.from(($('#a-image').files) || []);
+      if (!texte && !fichiers.length) { toast('Colle la légende, ou dépose une capture d’écran ou la vidéo.'); return; }
+      const url = $('#a-url').value.trim();
+      const r = neuve({
+        source: { url, plateforme: plateforme(url), auteur: auteurDepuisUrl(url), texte },
+        titre: 'Lecture en cours…'
+      });
+      const photo = fichiers.find(f => !estVideo(f));
+      if (photo) { const cle = uid(); await DB.media(cle, photo); r.media = cle; }
+      r._captures = fichiers;
       await sauver(r);
-      p.hidden = true; rafraichir(); await ouvrirRecette(r.id);
-      toast('Fiche créée. Vérifie-la et corrige avec ✎.');
+      p.hidden = true;
+      await ouvrirRecette(r.id);
+      await analyser(r);
       return;
     }
     if (e.target.id === 'a-vide') {
       const r = neuve({ titre: 'Nouvelle recette', etat: 'prete' });
-      await enregistrerImage(r); await sauver(r);
+      await sauver(r);
       p.hidden = true; rafraichir(); await ouvrirRecette(r.id); editer(r);
       return;
     }
     if (e.target.id === 'a-export') { await exporter(); return; }
   };
   p.onchange = async e => {
+    if (e.target.id === 'a-image') {
+      const fs = Array.from(e.target.files || []);
+      const etat = $('#a-etat-media');
+      if (etat) etat.textContent = fs.length ? fs.map(f => (estVideo(f) ? '🎬 ' : '🖼 ') + (f.name || 'fichier')).join(', ') : '';
+      return;
+    }
     if (e.target.id !== 'a-import') return;
     const f = e.target.files[0]; if (!f) return;
     try {
@@ -1511,11 +1678,6 @@ function ouvrirAjout() {
       rafraichir(); toast(n + ' recette' + (n > 1 ? 's' : '') + ' importée' + (n > 1 ? 's' : ''));
     } catch (err) { toast('Fichier illisible'); }
   };
-}
-
-async function enregistrerImage(r) {
-  const i = $('#a-image');
-  if (i && i.files && i.files[0]) { const cle = uid(); await DB.media(cle, i.files[0]); r.media = cle; }
 }
 
 async function exporter() {
