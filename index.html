@@ -694,8 +694,35 @@ const BRUIT = [
   /^\d{1,2}\s+(janv|f[ée]vr|mars|avril|mai|juin|juil|ao[ûu]t|sept|oct|nov|d[ée]c)\w*\.?(\s+\d{4})?$/i,
   /^il y a .{1,24}$/i,
   /^\d+\s*(j|h|min|sem|semaines?|jours?|heures?|mois|ans?)$/i,
+  /^https?:\/\/\S+$/i,
+  /^www\.\S+$/i,
   /^[^\p{L}]*$/u
 ];
+
+/* L'OCR lit une capture ligne par ligne : la barre d'état, les compteurs et
+   le pseudo se retrouvent parfois soudés sur une seule ligne. On coupe
+   devant le premier vrai mot. */
+function retirerEnteteInterface(l) {
+  if (!/^\d{1,2}\s*[:h]\s*\d{2}\b/.test(l)) return l;
+  const mots = l.split(/\s+/);
+  let i = 1;
+  while (i < mots.length) {
+    const m = mots[i];
+    if (/^[a-z0-9][a-z0-9.__]{2,}$/i.test(m) && /[a-zà-ÿ]{3}/i.test(m)
+      && !/^(allposts?|posts?|reels?|stories?)$/i.test(m)) break;
+    i++;
+  }
+  return i < mots.length ? mots.slice(i).join(' ') : '';
+}
+
+/* Confusions fréquentes de la reconnaissance de caractères. */
+function corrigerOCR(t) {
+  return String(t || '')
+    .replace(/(\d)\s*m\s*[!1|íÍlI](?=\s|$|\b)/g, '$1 ml')
+    .replace(/\bm!\b/g, 'ml')
+    .replace(/(\d)\s*9\s*(?=de\s)/g, '$1 g ')
+    .replace(/\bc\s*!\s*/g, 'cl ');
+}
 
 function nettoyerLignes(lignes) {
   return lignes.filter(l => {
@@ -741,12 +768,13 @@ const VERBES = /^(mélange|melange|ajoute|verse|fais|faites|mettre|mets|met|cuir
 
 function parseLegende(texte, source) {
   const r = neuve({ source: Object.assign({ plateforme: '', url: '', auteur: '', texte: texte }, source || {}) });
-  const brutes = texte.replace(/\r/g, '').split('\n').map(l => l.trim());
+  const brutes = texte.replace(/\r/g, '').split('\n')
+    .map(l => retirerEnteteInterface(l.trim()));
   const hashtags = (texte.match(/#[\p{L}\d_]+/gu) || []).slice(0, 8);
   const lignes = couperApresHashtags(nettoyerLignes(brutes));
   const utiles = [];
   for (let l of lignes) {
-    l = l.replace(/#[\p{L}\d_]+/gu, '').trim();
+    l = l.replace(/#[\p{L}\d_]+/gu, '').replace(/https?:\/\/\S+/g, '').trim();
     const au = l.match(/@([\w.]+)/);
     if (au) { if (!r.source.auteur) r.source.auteur = '@' + au[1]; l = l.replace(/@[\w.]+/g, '').trim(); }
     if (l.replace(/[^\p{L}\d]/gu, '').length > 1) utiles.push(l);
@@ -774,7 +802,13 @@ function parseLegende(texte, source) {
     });
   }
 
-  const ligneTitre = entete.find(l => l.length > 2 && l.length < 90) || utiles[0] || 'Recette sans titre';
+  const bonTitre = l => {
+    if (!l || l.length < 3 || l.length > 90) return false;
+    if (/https?:\/\/|www\./i.test(l)) return false;
+    const lettres = (l.match(/\p{L}/gu) || []).length;
+    return lettres >= 6 && lettres / l.length > 0.55;
+  };
+  const ligneTitre = entete.find(bonTitre) || utiles.find(bonTitre) || 'Recette sans titre';
   r.titre = ligneTitre.replace(/^[^\p{L}\d]+/u, '').replace(/[^\p{L}\d)\]!?»"']+$/u, '').replace(/[:：]\s*$/, '').trim();
   if (r.titre.length > 70) r.titre = r.titre.slice(0, 68) + '…';
   const suite = entete.filter(l => l !== ligneTitre).join(' ');
@@ -1218,9 +1252,11 @@ function blocCompletion(r) {
     <p class="aide" id="etat-media" style="margin:0 0 14px"></p>
     <div class="rangee-actions">
       <button class="bouton" data-analyser>Créer la fiche</button>
+      <button class="bouton fantome" data-voix>🎙 Transcrire la voix</button>
       <button class="bouton fantome" data-prompt>Copier le texte pour Claude</button>
       <button class="bouton fantome" data-coller-json>Coller une fiche JSON</button>
-    </div>`;
+    </div>
+    <p class="aide">Beaucoup de recettes n’écrivent les étapes nulle part : elles sont dites à voix haute. Dépose la vidéo, puis lance la transcription — le modèle se télécharge une fois (environ 80 Mo) et travaille ensuite hors ligne.</p>`;
 }
 
 async function gererClicRecette(e, r) {
@@ -1251,6 +1287,7 @@ async function gererClicRecette(e, r) {
     p.hidden = true; rafraichir(); toast('Recette supprimée'); return;
   }
   if (e.target.closest('[data-analyser]')) { await analyser(r); return; }
+  if (e.target.closest('[data-voix]')) { await transcrireEtRemplir(r); return; }
   if (e.target.closest('[data-prompt]')) {
     const txt = $('[data-legende]', p).value;
     try { await navigator.clipboard.writeText(PROMPT_EXTRACTION + '\n\n---\n' + txt); toast('Texte copié. Colle-le dans Claude, puis rapporte le JSON.'); }
@@ -1587,7 +1624,7 @@ async function texteDepuisImages(images, progres) {
     try { const { data } = await moteur.recognize(images[i]); blocs.push(data.text || ''); }
     catch (e) { /* on continue avec les autres */ }
   }
-  return fusionnerLignes(blocs);
+  return corrigerOCR(fusionnerLignes(blocs));
 }
 
 /* ============================================================
@@ -1634,7 +1671,7 @@ async function analyser(r) {
         }
         contenu.push({
           type: 'text', text: PROMPT_EXTRACTION +
-            '\n\nLes images ci-dessus viennent d’une publication de recette (captures d’écran ou images extraites de la vidéo). Lis le texte qui y est affiché et ce que tu vois préparer.' +
+            '\n\nLes images ci-dessus viennent d’une publication de recette (captures d’écran ou images extraites de la vidéo). Lis le texte qui y est affiché et observe les gestes pour reconstituer les étapes, même si elles ne sont écrites nulle part.' +
             (texte ? '\n\nLégende de la publication :\n' + texte : '')
         });
         const j = await sample.json([{ role: 'user', content: contenu }], { modelTier: 'default' });
@@ -1673,6 +1710,21 @@ async function analyser(r) {
     else toast('Analyse impossible : ' + (e && e.message ? e.message : 'erreur inconnue'));
   }
 
+  /* Recette sans aucune étape écrite : la vidéo les dit sans doute à voix haute. */
+  if (fait && !(r.etapes || []).length && !r._voix) {
+    const video = fichiers.find(estVideo);
+    if (video && window.confirm('Cette recette n’a aucune étape écrite. Écouter la bande-son de la vidéo pour les retranscrire ?\n\nLe modèle se télécharge une seule fois (environ 80 Mo), puis tout se passe hors ligne.')) {
+      try {
+        const voix = await transcrireVoix(video, avance);
+        if (voix && voix.length > 15) {
+          r._voix = voix;
+          const base = [texte, r.source.texte].filter(Boolean)[0] || '';
+          appliquerLecture(r, [base, 'Préparation :', voix].filter(Boolean).join('\n'));
+        } else toast('Aucune parole exploitable dans cette vidéo.');
+      } catch (e) { toast('Transcription impossible : ' + ((e && e.message) || 'erreur')); }
+    }
+  }
+
   if (bouton) { bouton.disabled = false; bouton.textContent = 'Créer la fiche'; }
   if (!fait) return;
   delete r._captures;
@@ -1685,6 +1737,7 @@ async function analyser(r) {
 
 function appliquerLecture(r, texte) {
   const lu = parseLegende(texte, r.source);
+  if (!lu.etapes.length && r._voix) lu.etapes = etapesDepuisVoix(r._voix);
   Object.assign(r, {
     titre: lu.titre, chapeau: lu.chapeau, portions: lu.portions, tempsPrep: lu.tempsPrep,
     tempsCuisson: lu.tempsCuisson, ingredients: lu.ingredients, etapes: lu.etapes,
@@ -1692,6 +1745,120 @@ function appliquerLecture(r, texte) {
   });
   r.source.texte = texte;
   r.etat = 'prete';
+}
+/* ============================================================
+   Transcription de la voix
+   Le modèle Whisper tourne dans le navigateur, sur l'appareil.
+   Rien n'est envoyé nulle part, aucun abonnement. En échange,
+   il faut un téléchargement unique d'environ 80 Mo.
+   ============================================================ */
+
+async function bandeSon16k(fichier, progres) {
+  progres('Extraction de la bande-son…');
+  const octets = await fichier.arrayBuffer();
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  if (!Ctx) throw new Error('audio non pris en charge');
+  const ctx = new Ctx();
+  let decode;
+  try { decode = await ctx.decodeAudioData(octets.slice(0)); }
+  finally { try { ctx.close(); } catch (e) { } }
+  if (!decode || !decode.duration) throw new Error('bande-son illisible');
+  if (decode.duration > 420) throw new Error('vidéo trop longue (plus de 7 minutes)');
+  const hors = new OfflineAudioContext(1, Math.ceil(decode.duration * 16000), 16000);
+  const src = hors.createBufferSource();
+  src.buffer = decode; src.connect(hors.destination); src.start();
+  const rendu = await hors.startRendering();
+  return rendu.getChannelData(0);
+}
+
+const Voix = { moteur: null };
+
+async function moteurVoix(progres) {
+  if (Voix.moteur) return Voix.moteur;
+  progres('Préparation du modèle…');
+  const lib = await import('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2');
+  lib.env.allowLocalModels = false;
+  let dernier = -1;
+  Voix.moteur = await lib.pipeline('automatic-speech-recognition', 'Xenova/whisper-base', {
+    quantized: true,
+    progress_callback: d => {
+      if (d && d.status === 'progress' && typeof d.progress === 'number') {
+        const p = Math.round(d.progress);
+        if (p !== dernier) { dernier = p; progres('Téléchargement du modèle… ' + p + ' %'); }
+      }
+    }
+  });
+  return Voix.moteur;
+}
+
+async function transcrireVoix(fichier, progres) {
+  const audio = await bandeSon16k(fichier, progres);
+  const moteur = await moteurVoix(progres);
+  progres('Écoute de la vidéo…');
+  const res = await moteur(audio, {
+    language: 'french', task: 'transcribe',
+    chunk_length_s: 30, stride_length_s: 5
+  });
+  return String((res && res.text) || '').trim();
+}
+
+/* La voix donne un bloc de prose : on le découpe en étapes. */
+const VERBES_VOIX = /(m[ée]lang|ajout|vers|incorpor|fouett|batt|cuis|cuit|enfourn|d[ée]pos|coup|[ée]minc|[ée]pluch|remu|mett|mets|r[ée]serv|saupoudr|[ée]tal|badigeonn|serv|assaisonn|sal(e|ez)\b|poivr|arros|napp|d[ée]moul|p[ée]tri|plong|[ée]goutt|filtr|chauff|grill|rissol|dor(e|ez)\b|laiss|four\b|micro-?ondes|po[êe]le|casserole|saladier|bol\b|moule\b|minute|seconde|puis\b|ensuite\b|enfin\b|d'abord)/i;
+
+function dureeDepuisPhrase(p) {
+  let m = p.match(/(\d+)\s*(?:h|heures?)\s*(\d{1,2})?/i);
+  if (m) return Math.min(6 * 3600, Number(m[1]) * 3600 + (m[2] ? Number(m[2]) * 60 : 0));
+  m = p.match(/(\d+)\s*(?:min|mn|minutes?)\s*(\d{1,2})?\b/i);
+  if (m) return Math.min(6 * 3600, Number(m[1]) * 60 + (m[2] ? Number(m[2]) : 0));
+  m = p.match(/(\d+)\s*(?:secondes?|sec)\b/i);
+  if (m) return Number(m[1]);
+  return 0;
+}
+
+function etapesDepuisVoix(texte) {
+  let t = String(texte || '').replace(/\s+/g, ' ').trim();
+  let phrases = t.split(/(?<=[.!?])\s+/);
+  /* Whisper ponctue mal les vidéos rapides : on recoupe aux articulations. */
+  if (phrases.length < 3 && t.length > 160) {
+    phrases = t.split(/\s*(?=\b(?:puis|ensuite|enfin|apr[èe]s|une fois|pendant ce temps|et voil[àa])\b)/i);
+  }
+  const etapes = [];
+  for (let p of phrases) {
+    p = p.replace(/^[,;:\s]+/, '').trim();
+    if (p.length < 14) continue;
+    if (!VERBES_VOIX.test(p)) continue;
+    p = p.charAt(0).toUpperCase() + p.slice(1);
+    etapes.push({ texte: p, minuteur: dureeDepuisPhrase(p) });
+    if (etapes.length >= 16) break;
+  }
+  return etapes;
+}
+
+/* Bouton « Transcrire la voix » de la fiche en attente. */
+async function transcrireEtRemplir(r) {
+  const p = $('#panneau-recette');
+  const video = (r._captures || []).find(estVideo);
+  if (!video) { toast('Dépose d’abord la vidéo de la recette.'); return; }
+  const bouton = $('[data-voix]', p);
+  const avance = m => { if (bouton) bouton.innerHTML = '<span class="tourne"></span> ' + esc(m); };
+  if (bouton) bouton.disabled = true;
+  try {
+    const texte = await transcrireVoix(video, avance);
+    if (!texte || texte.length < 15) { toast('Aucune parole exploitable dans cette vidéo.'); }
+    else {
+      const champ = $('[data-legende]', p);
+      if (champ) {
+        champ.value = [champ.value.trim(), 'Préparation :', texte].filter(Boolean).join('\n');
+        r.source.texte = champ.value;
+        r._voix = texte;
+        await sauver(r);
+      }
+      toast('Voix transcrite. Relis, puis crée la fiche.');
+    }
+  } catch (e) {
+    toast('Transcription impossible : ' + ((e && e.message) || 'erreur'));
+  }
+  if (bouton) { bouton.disabled = false; bouton.textContent = '🎙 Transcrire la voix'; }
 }
 /* ============================================================
    Ajouter une recette
