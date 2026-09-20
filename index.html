@@ -331,9 +331,11 @@ const App = {
 async function urlMedia(cle) {
   if (!cle) return null;
   if (App.urlsMedias.has(cle)) return App.urlsMedias.get(cle);
-  const b = await DB.media(cle);
+  let b = null;
+  try { b = await DB.media(cle); } catch (e) { return null; }
   if (!b) return null;
-  const u = URL.createObjectURL(b);
+  let u = null;
+  try { u = URL.createObjectURL(b); } catch (e) { return null; }
   App.urlsMedias.set(cle, u);
   return u;
 }
@@ -959,10 +961,12 @@ function trier(liste) {
 
 function rendreFiltres() {
   const c = $('#filtres');
-  c.innerHTML = FILTRES.map(f =>
-    `<button class="puce" data-f="${esc(f.id)}" aria-pressed="${App.filtres.has(f.id)}">${esc(f.id)}</button>`).join('');
+  c.innerHTML = (App.filtres.size ? '<button class="puce" data-f="__tout">✕ Tout effacer</button>' : '')
+    + FILTRES.map(f =>
+      `<button class="puce" data-f="${esc(f.id)}" aria-pressed="${App.filtres.has(f.id)}">${esc(f.id)}</button>`).join('');
   c.onclick = e => {
     const b = e.target.closest('[data-f]'); if (!b) return;
+    if (b.dataset.f === '__tout') { App.filtres.clear(); rendreFiltres(); rendreBiblio(); c.scrollLeft = 0; return; }
     const id = b.dataset.f;
     App.filtres.has(id) ? App.filtres.delete(id) : App.filtres.add(id);
     rendreFiltres(); rendreBiblio();
@@ -1175,7 +1179,12 @@ function basculer(vue) {
 }
 
 function rafraichir() {
-  $('#cpt').textContent = App.recettes.filter(r => r.etat === 'prete').length;
+  const pretes = App.recettes.filter(r => r.etat === 'prete');
+  $('#cpt').textContent = pretes.length;
+  const aTester = pretes.filter(r => !r.teste).length;
+  const sous = $('.compteur');
+  if (sous) sous.innerHTML = '<b id="cpt">' + pretes.length + '</b>'
+    + (aTester && pretes.length ? aTester + ' à tester' : 'recettes');
   const n = App.recettes.filter(r => r.etat === 'attente').length;
   const p = $('#pastille-attente'); p.hidden = !n; p.textContent = n;
   basculer(App.vue);
@@ -1185,12 +1194,28 @@ function rafraichir() {
    ============================================================ */
 let portionsAffichees = null;
 
+const UNITE_LISIBLE = {
+  'c. a s': 'c. à s.', 'cas': 'c. à s.', 'cs': 'c. à s.', 'c. a soupe': 'c. à s.',
+  'cuilleres a soupe': 'c. à s.', 'cuillere a soupe': 'c. à s.', 'cuilleree a soupe': 'c. à s.',
+  'c. a c': 'c. à c.', 'cac': 'c. à c.', 'cc': 'c. à c.', 'c. a cafe': 'c. à c.',
+  'cuilleres a cafe': 'c. à c.', 'cuillere a cafe': 'c. à c.', 'tsp': 'c. à c.', 'tbsp': 'c. à s.',
+  'carre': 'carré', 'carres': 'carré', 'pincees': 'pincée', 'pincee': 'pincée',
+  'gousses': 'gousse', 'tranches': 'tranche', 'sachets': 'sachet', 'feuilles': 'feuille',
+  'branches': 'branche', 'brins': 'brin', 'bottes': 'botte', 'verres': 'verre',
+  'tasses': 'tasse', 'boites': 'boîte', 'cuilleres': 'cuillère', 'noix': 'noix'
+};
+const PLURIELS = { 'carré': 'carrés', 'pincée': 'pincées', 'gousse': 'gousses', 'tranche': 'tranches',
+  'sachet': 'sachets', 'feuille': 'feuilles', 'branche': 'branches', 'brin': 'brins', 'botte': 'bottes',
+  'verre': 'verres', 'tasse': 'tasses', 'boîte': 'boîtes', 'cuillère': 'cuillères' };
+
 function fmtQte(ing, facteur) {
   if (ing.qte == null) return '';
   let q = ing.qte * facteur;
   let u = ing.unite || '';
   if (u === 'kg' && q < 1) { q *= 1000; u = 'g'; }
   if (u === 'l' && q < 1) { q *= 1000; u = 'ml'; }
+  u = UNITE_LISIBLE[u] || u;
+  if (q > 1 && PLURIELS[u]) u = PLURIELS[u];
   const aff = q < 10 ? arrondi(q, 2) : Math.round(q);
   return (String(aff).replace('.', ',') + ' ' + u).trim();
 }
@@ -1285,6 +1310,7 @@ async function dessinerRecette(r) {
     <div class="rangee-actions">
       <button class="bouton" data-cuisine>Mode cuisine</button>
       <button class="bouton fantome" data-editer>Modifier</button>
+      <button class="bouton fantome" data-copier>Copier</button>
       <button class="bouton fantome" data-courses>Ajouter aux courses</button>
     </div>`}
 
@@ -1309,6 +1335,7 @@ function blocCompletion(r) {
     <p class="aide" id="etat-media" style="margin:0 0 14px"></p>
     <div class="rangee-actions">
       <button class="bouton" data-analyser>Créer la fiche</button>
+      ${r.source.url ? '<button class="bouton fantome" data-lien>🔗 Lire le lien</button>' : ''}
       <button class="bouton fantome" data-voix>🎙 Transcrire la voix</button>
       <button class="bouton fantome" data-prompt>Copier le texte pour Claude</button>
       <button class="bouton fantome" data-coller-json>Coller une fiche JSON</button>
@@ -1330,6 +1357,22 @@ async function gererClicRecette(e, r) {
     toast(r.media ? 'Illustration choisie' : 'Illustration retirée');
     return;
   }
+  if (e.target.closest('[data-copier]')) {
+    const f = (portionsAffichees || r.portions) / (r.portions || 1);
+    const txt = [
+      r.titre,
+      r.chapeau,
+      '',
+      'Pour ' + (portionsAffichees || r.portions) + ' portion' + ((portionsAffichees || r.portions) > 1 ? 's' : ''),
+      ...r.ingredients.map(i => '- ' + (fmtQte(i, f) ? fmtQte(i, f) + ' ' : '') + i.nom),
+      '',
+      ...r.etapes.map((e2, n) => (n + 1) + '. ' + e2.texte),
+      r.source.url ? '\nSource : ' + r.source.url : ''
+    ].filter(x => x !== undefined).join('\n');
+    try { await navigator.clipboard.writeText(txt); toast('Recette copiée'); }
+    catch (err) { toast('Copie impossible'); }
+    return;
+  }
   if (e.target.closest('[data-cuisine]')) { modeCuisine(r); return; }
   if (e.target.closest('[data-editer]')) { editer(r); return; }
   if (e.target.closest('[data-courses]')) {
@@ -1341,10 +1384,29 @@ async function gererClicRecette(e, r) {
     await DB.del(r.id);
     for (const c of [r.media, r.mediaPerso].concat(r.captures || [])) if (c) DB.delMedia(c);
     App.recettes = App.recettes.filter(x => x.id !== r.id);
+    App.courses.choisies = App.courses.choisies.filter(x => x !== r.id);
+    Object.keys(App.semaine).forEach(j => Object.keys(App.semaine[j] || {}).forEach(c => {
+      if (App.semaine[j][c] === r.id) delete App.semaine[j][c];
+    }));
+    await DB.reglage('courses', App.courses); await DB.reglage('semaine', App.semaine);
     p.hidden = true; rafraichir(); toast('Recette supprimée'); return;
   }
   if (e.target.closest('[data-analyser]')) { await analyser(r); return; }
   if (e.target.closest('[data-voix]')) { await transcrireEtRemplir(r); return; }
+  if (e.target.closest('[data-lien]')) {
+    const b = e.target.closest('[data-lien]');
+    b.disabled = true;
+    const avance = m => { b.innerHTML = '<span class="tourne"></span> ' + esc(m); };
+    const lu = await completerDepuisLien(r, avance).catch(() => '');
+    b.disabled = false; b.textContent = '🔗 Lire le lien';
+    if (lu) {
+      const champ = $('[data-legende]', $('#panneau-recette'));
+      if (champ) champ.value = lu;
+      await sauver(r);
+      toast('Légende récupérée. Vérifie, puis crée la fiche.');
+    } else toast('Publication illisible depuis le lien — Instagram la protège. Passe par une capture d’écran.');
+    return;
+  }
   if (e.target.closest('[data-prompt]')) {
     const txt = $('[data-legende]', p).value;
     try { await navigator.clipboard.writeText(PROMPT_EXTRACTION + '\n\n---\n' + txt); toast('Texte copié. Colle-le dans Claude, puis rapporte le JSON.'); }
@@ -1493,6 +1555,12 @@ function editer(r) {
    ============================================================ */
 const Cuisine = { r: null, i: 0, chrono: null, reste: 0, veille: null };
 
+async function reprendreVeille() {
+  if ($('#cuisine').hidden || document.visibilityState !== 'visible') return;
+  try { if ('wakeLock' in navigator) Cuisine.veille = await navigator.wakeLock.request('screen'); } catch (e) { }
+}
+document.addEventListener('visibilitychange', reprendreVeille);
+
 async function modeCuisine(r) {
   if (!r.etapes.length) { toast('Aucune étape à suivre.'); return; }
   Cuisine.r = r; Cuisine.i = 0;
@@ -1546,8 +1614,9 @@ $('#cuisine').addEventListener('click', async e => {
   const l = e.target.closest('[data-lancer]');
   if (l) {
     Cuisine.reste = Number(l.dataset.lancer);
+    Cuisine.fin = Date.now() + Cuisine.reste * 1000;
     Cuisine.chrono = setInterval(() => {
-      Cuisine.reste--;
+      Cuisine.reste = Math.max(0, Math.round((Cuisine.fin - Date.now()) / 1000));
       const a = $('#affiche-chrono');
       if (a) a.textContent = fmtChrono(Cuisine.reste);
       if (Cuisine.reste <= 0) {
@@ -1700,14 +1769,26 @@ async function rangerCaptures(r, images) {
 async function analyser(r) {
   const p = $('#panneau-recette');
   const champ = $('[data-legende]', p);
-  const texte = (champ ? champ.value : r.source.texte || '').trim();
+  const texteSaisi = (champ ? champ.value : r.source.texte || '').trim();
   const fichiers = (r._captures || []).slice(0, 4);
-  if (!texte && !fichiers.length) { toast('Colle la légende, ou dépose une capture d’écran ou la vidéo.'); return; }
-
   const bouton = $('[data-analyser]', p);
   const avance = m => { if (bouton) bouton.innerHTML = '<span class="tourne"></span> ' + esc(m); };
   if (bouton) bouton.disabled = true;
   avance('Lecture…');
+
+  /* Voie 0 : tout ce qu'on a, c'est un lien. On tente de lire la publication. */
+  let texte = texteSaisi;
+  if (!texte && !fichiers.length && r.source.url) {
+    const lu = await completerDepuisLien(r, avance).catch(() => '');
+    if (lu) { texte = lu; if (champ) champ.value = lu; }
+  }
+  if (!texte && !fichiers.length) {
+    if (bouton) { bouton.disabled = false; bouton.textContent = 'Créer la fiche'; }
+    toast(r.source.url
+      ? 'Publication illisible depuis le lien. Dépose une capture d’écran ou la vidéo.'
+      : 'Colle la légende, ou dépose une capture d’écran ou la vidéo.');
+    return;
+  }
 
   let fait = false;
   try {
@@ -1801,6 +1882,7 @@ function appliquerLecture(r, texte) {
     etiquettes: lu.etiquettes, proteine: lu.proteine, nutrition: lu.nutrition
   });
   r.source.texte = texte;
+  if (!r.source.auteur && lu.source.auteur) r.source.auteur = lu.source.auteur;
   r.etat = 'prete';
 }
 /* ============================================================
@@ -1918,6 +2000,129 @@ async function transcrireEtRemplir(r) {
   if (bouton) { bouton.disabled = false; bouton.textContent = '🎙 Transcrire la voix'; }
 }
 /* ============================================================
+   Récupérer une recette depuis son lien
+   Instagram n'autorise pas une page web à lire directement ses
+   publications. On passe donc par la page d'intégration publique
+   (/embed/captioned/), relayée par un service qui, lui, accepte
+   les requêtes venues d'un autre site. C'est la seule voie sans
+   serveur et sans compte développeur : elle marche souvent,
+   pas toujours. En cas d'échec, on retombe sur les captures.
+   ============================================================ */
+
+const RELAIS = [
+  u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
+  u => 'https://corsproxy.io/?url=' + encodeURIComponent(u),
+  u => 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u),
+  u => 'https://r.jina.ai/' + u
+];
+
+function codePublication(url) {
+  const m = String(url || '').match(/(?:instagram\.com|facebook\.com|fb\.watch)\/(?:reels?|p|tv|share\/r)\/([A-Za-z0-9_-]{5,})/i);
+  return m ? m[1] : null;
+}
+
+function decoderEntites(t) {
+  const z = document.createElement('textarea');
+  z.innerHTML = String(t || '');
+  return z.value;
+}
+
+async function viaRelais(cible, progres) {
+  for (let i = 0; i < RELAIS.length; i++) {
+    try {
+      progres('Ouverture de la publication… ' + (i + 1) + '/' + RELAIS.length);
+      const ctrl = new AbortController();
+      const minuterie = setTimeout(() => ctrl.abort(), 15000);
+      const rep = await fetch(RELAIS[i](cible), { signal: ctrl.signal, redirect: 'follow' });
+      clearTimeout(minuterie);
+      if (!rep.ok) continue;
+      const txt = await rep.text();
+      if (txt && txt.length > 300) return txt;
+    } catch (e) { /* relais suivant */ }
+  }
+  return null;
+}
+
+function legendeDepuisPage(page) {
+  if (!page) return '';
+  let bloc = null;
+  if (/</.test(page)) {
+    let m = page.match(/class="Caption"[\s\S]{0,200}?>([\s\S]*?)<div class="CaptionComments"/i);
+    if (!m) m = page.match(/class="Caption"[\s\S]{0,200}?>([\s\S]{0,4000}?)<\/div>\s*<\/div>/i);
+    if (m) bloc = m[1];
+    if (!bloc) {
+      const og = page.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']*)["']/i)
+        || page.match(/<meta[^>]+content=["']([^"']*)["'][^>]+property=["']og:description["']/i);
+      if (og) bloc = og[1];
+    }
+    if (!bloc) {
+      const j = page.match(/"edge_media_to_caption":\s*\{"edges":\s*\[\{"node":\s*\{"text":\s*"((?:[^"\\]|\\.)*)"/);
+      if (j) bloc = j[1].replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\u([0-9a-f]{4})/gi, (x, c) => String.fromCharCode(parseInt(c, 16)));
+    }
+  } else bloc = page;
+  if (!bloc) return '';
+
+  let t = String(bloc)
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|li|h\d)>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ');
+  t = decoderEntites(t).replace(/\u00a0/g, ' ');
+  /* og:description ressemble à : « 1 691 likes, 38 comments - laurenbouffe on … : "…" » */
+  t = t.replace(/^[\s\d.,\u202f]*(likes?|j'aime|mentions)[^:]{0,140}:\s*/i, '').replace(/^["“]|["”]\s*$/g, '');
+  return t.split('\n').map(l => l.replace(/[ \t]+/g, ' ').trim()).join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+function imageDepuisPage(page) {
+  if (!page || !/</.test(page)) return null;
+  let m = page.match(/class="EmbeddedMediaImage"[^>]*src=["']([^"']+)["']/i)
+    || page.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
+    || page.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+  return m ? decoderEntites(m[1]) : null;
+}
+
+async function rapatrierImage(url) {
+  for (const relais of RELAIS.slice(0, 3)) {
+    try {
+      const rep = await fetch(relais(url));
+      if (!rep.ok) continue;
+      const b = await rep.blob();
+      if (b && b.size > 4000) return b;
+    } catch (e) { }
+  }
+  return null;
+}
+
+/* Renvoie { texte, image } ou null. */
+async function lireLien(url, progres) {
+  const code = codePublication(url);
+  const cible = code && /instagram/i.test(url)
+    ? 'https://www.instagram.com/p/' + code + '/embed/captioned/'
+    : url;
+  const page = await viaRelais(cible, progres);
+  if (!page) return null;
+  const texte = legendeDepuisPage(page);
+  const image = imageDepuisPage(page);
+  if (!texte && !image) return null;
+  return { texte, image };
+}
+
+/* Remplit la fiche à partir du seul lien. Renvoie le texte trouvé. */
+async function completerDepuisLien(r, progres) {
+  if (!r.source.url) return '';
+  const res = await lireLien(r.source.url, progres).catch(() => null);
+  if (!res) return '';
+  if (res.image && !r.media) {
+    progres('Récupération de la photo…');
+    const b = await rapatrierImage(res.image).catch(() => null);
+    if (b) { const cle = uid(); await DB.media(cle, b); r.media = cle; }
+  }
+  if (res.texte && res.texte.length > 30) {
+    r.source.texte = res.texte;
+    return res.texte;
+  }
+  return '';
+}
+/* ============================================================
    Ajouter une recette
    ============================================================ */
 function ouvrirAjout() {
@@ -1927,7 +2132,7 @@ function ouvrirAjout() {
   <div class="dedans">
     <p class="aide">Colle la légende de la publication — ou son premier commentaire, là où la recette se cache souvent. Le titre, les quantités, les étapes et la valeur nutritionnelle se remplissent ensuite tout seuls.</p>
     <textarea class="zone" id="a-texte" placeholder="🍝 Pâtes crémeuses au citron&#10;&#10;Ingrédients :&#10;- 300 g de pâtes&#10;- 20 cl de crème&#10;…"></textarea>
-    <label class="champ" style="margin-top:14px"><span>Lien d’origine (facultatif)</span>
+    <label class="champ" style="margin-top:14px"><span>Lien de la publication — seul, il suffit parfois</span>
       <input id="a-url" inputmode="url" placeholder="https://www.instagram.com/reel/…"></label>
     <label class="choix-fichier">🖼 Captures d’écran, photo ou vidéo de la recette
       <input type="file" accept="image/*,video/*" multiple id="a-image" hidden></label>
@@ -1948,13 +2153,15 @@ function ouvrirAjout() {
   p.onclick = async e => {
     if (e.target.closest('[data-fermer]')) { p.hidden = true; return; }
     if (e.target.id === 'a-creer') {
-      const texte = $('#a-texte').value.trim();
+      const saisi = $('#a-texte').value.trim();
       const fichiers = Array.from(($('#a-image').files) || []);
-      if (!texte && !fichiers.length) { toast('Colle la légende, ou dépose une capture d’écran ou la vidéo.'); return; }
-      const url = $('#a-url').value.trim();
+      let url = $('#a-url').value.trim();
+      const lienSeul = !url && /^https?:\/\/\S+$/.test(saisi);
+      if (lienSeul) url = saisi;
+      const texte = lienSeul ? '' : saisi;
+      if (!texte && !fichiers.length && !url) { toast('Colle la légende ou le lien, ou dépose une capture d’écran.'); return; }
       const r = neuve({
-        source: { url, plateforme: plateforme(url), auteur: auteurDepuisUrl(url), texte },
-        titre: 'Lecture en cours…'
+        source: { url, plateforme: plateforme(url), auteur: auteurDepuisUrl(url), texte }
       });
       r._captures = fichiers;
       await sauver(r);
@@ -2068,6 +2275,7 @@ async function traiterPartage() {
   await sauver(r);
   rafraichir();
   if (r.etat === 'prete') { await ouvrirRecette(r.id); toast('Recette lue depuis le partage'); }
+  else if (r.source.url) { await ouvrirRecette(r.id); await analyser(r); }
   else { basculer('attente'); toast('Publication rangée. Complète-la quand tu veux.'); }
 }
 
